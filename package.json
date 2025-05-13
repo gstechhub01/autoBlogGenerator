@@ -1,0 +1,23 @@
+{
+  "name": "seo-blog-generator",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "author": "gstechhub",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "node-cron": "^4.0.3",
+    "openai": "^4.97.0",
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0"
+  }
+}
