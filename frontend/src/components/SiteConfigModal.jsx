@@ -14,23 +14,24 @@ const SiteConfigModal = ({ isOpen, onClose, onSave, apiBase }) => {
 
   const fetchSites = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`${apiBase}/site-configs`);
-      const data = await response.json();
-      if (response.ok) {
-        setSites(data.sites || []);
+      const res = await fetch(`${apiBase}/site-configs`);
+      const data = await res.json();
+      if (data.success) {
+        setSites(data.siteConfigs);
       } else {
-        setError('Failed to load site configurations');
+        setError('Failed to load site configs');
       }
     } catch (err) {
-      setError('Failed to load site configurations');
+      setError('Failed to load site configs');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSiteChange = (idx, field, value) => {
-    setSites(prev => prev.map((site, i) => i === idx ? { ...site, [field]: value } : site));
+    setSites(sites => sites.map((site, i) => i === idx ? { ...site, [field]: value } : site));
   };
 
   const addSite = () => {
@@ -38,7 +39,7 @@ const SiteConfigModal = ({ isOpen, onClose, onSave, apiBase }) => {
   };
 
   const removeSite = (idx) => {
-    setSites(prev => prev.filter((_, i) => i !== idx));
+    setSites(sites => sites.filter((_, i) => i !== idx));
   };
 
   const handleSave = async (e) => {
@@ -46,7 +47,6 @@ const SiteConfigModal = ({ isOpen, onClose, onSave, apiBase }) => {
     setLoading(true);
     setError(null);
     setSuccess(null);
-    
     try {
       const res = await fetch(`${apiBase}/save-site-configs`, {
         method: 'POST',
@@ -54,17 +54,15 @@ const SiteConfigModal = ({ isOpen, onClose, onSave, apiBase }) => {
         body: JSON.stringify({ sites }),
       });
       const data = await res.json();
-      
-      if (res.ok) {
-        setSuccess('Site configurations saved successfully!');
-        setTimeout(() => {
-          onSave && onSave();
-        }, 1500);
-      } else {
-        setError(data.error || 'Failed to save configurations');
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to save');
+      }
+      setSuccess('Saved!');
+      if (onSave) {
+        onSave();
       }
     } catch (err) {
-      setError('Failed to save configurations');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -75,87 +73,74 @@ const SiteConfigModal = ({ isOpen, onClose, onSave, apiBase }) => {
   return (
     <div className="modal-backdrop">
       <div className="modal-content">
-        <button
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl font-bold transition-colors"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
-        
-        <h2 className="text-2xl font-bold mb-6 text-blue-700">Manage Site Configurations</h2>
-        
-        {loading && !sites.length ? (
-          <div className="flex justify-center items-center py-8">
-            <div className="spinner"></div>
-          </div>
-        ) : (
-          <form onSubmit={handleSave} className="space-y-6">
-            {sites.map((site, idx) => (
-              <div key={idx} className="card bg-blue-50 border-blue-200">
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Site URL"
-                    className="w-full"
-                    value={site.url}
-                    onChange={e => handleSiteChange(idx, 'url', e.target.value)}
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Username"
-                    className="w-full"
-                    value={site.username}
-                    onChange={e => handleSiteChange(idx, 'username', e.target.value)}
-                    required
-                  />
-                  <input
-                    type="password"
-                    placeholder="App Password"
-                    className="w-full"
-                    value={site.password}
-                    onChange={e => handleSiteChange(idx, 'password', e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeSite(idx)}
-                    className="btn-danger text-sm"
-                  >
-                    Remove Site
-                  </button>
-                </div>
+        <h3 className="text-2xl font-bold mb-6 text-blue-700">Site Settings</h3>
+        <form onSubmit={handleSave} className="space-y-6">
+          {sites.map((site, idx) => (
+            <div key={idx} className="field-group card bg-blue-50 border-blue-200 p-4 rounded-md shadow-sm">
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Site URL"
+                  className="w-full p-2 border rounded-md"
+                  value={site.url}
+                  onChange={e => handleSiteChange(idx, 'url', e.target.value)}
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Username"
+                  className="w-full p-2 border rounded-md"
+                  value={site.username}
+                  onChange={e => handleSiteChange(idx, 'username', e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  className="w-full p-2 border rounded-md"
+                  value={site.password}
+                  onChange={e => handleSiteChange(idx, 'password', e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => removeSite(idx)}
+                  className="remove-btn text-red-600 hover:text-red-800"
+                >
+                  Remove Site
+                </button>
               </div>
-            ))}
-            
+            </div>
+          ))}
+          
+          <button
+            type="button"
+            onClick={addSite}
+            className="add-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Add Site
+          </button>
+          
+          <div className="flex justify-between">
             <button
               type="button"
-              onClick={addSite}
-              className="btn-success w-full"
+              onClick={onClose}
+              className="btn-secondary bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
             >
-              Add New Site
+              Close
             </button>
-            
-            {error && <div className="error-message">{error}</div>}
-            {success && <div className="success-message">{success}</div>}
-            
             <button
               type="submit"
-              className="btn-primary w-full py-3 text-lg"
+              className="btn-success bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
               disabled={loading}
             >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <div className="spinner mr-2"></div>
-                  Saving...
-                </span>
-              ) : (
-                'Save Configurations'
-              )}
+              {loading ? 'Saving...' : 'Save'}
             </button>
-          </form>
-        )}
+          </div>
+          
+          {error && <div className="error-message text-red-600">{error}</div>}
+          {success && <div className="success-message text-green-600">{success}</div>}
+        </form>
       </div>
     </div>
   );

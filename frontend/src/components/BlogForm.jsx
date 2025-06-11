@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import MarkdownEditor from './MarkdownEditor';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-const BlogForm = () => {
+const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'google' }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  // Use selectedSites, contentSource, and engine from location.state
   const [keywords, setKeywords] = useState('');
   const [links, setLinks] = useState('');
   const [tags, setTags] = useState('');
@@ -15,14 +13,9 @@ const BlogForm = () => {
   const [scheduleTime, setScheduleTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [contentSource, setContentSource] = useState(location.state?.contentSource || 'openai');
-  const [engine, setEngine] = useState(location.state?.engine || 'google');
   const [markdownContent, setMarkdownContent] = useState('');
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-
-  // Get selectedSites from location.state
-  const selectedSites = (location.state && Array.isArray(location.state.selectedSites)) ? location.state.selectedSites : [];
 
   // Fetch scraped content when contentSource or keywords or engine changes
   useEffect(() => {
@@ -51,28 +44,22 @@ const BlogForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (selectedSites.length === 0) {
-      setError('Please select at least one site to publish to');
-      return;
-    }
-
     setLoading(true);
     setError(null);
-  
-    const payload = {
-      sites: selectedSites.map(site => ({ url: site.url, username: site.username })),
-      keywords: keywords.split(',').map(k => k.trim()).filter(Boolean),
-      links: links.split(',').map(l => l.trim()).filter(Boolean),
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      topics: topics.split(',').map(t => t.trim()).filter(Boolean),
-      autoTitle,
-      articleCount: Number(articleCount) || 1,
-      scheduleTime: scheduleTime || undefined,
-      contentSource,
-      engine: contentSource === 'scrapper' ? engine : undefined,
-    };
-  
     try {
+      const payload = {
+        sites: selectedSites.map(site => ({ url: site.url, username: site.username })),
+        keywords: keywords.split(',').map(k => k.trim()).filter(Boolean),
+        links: links.split(',').map(l => l.trim()).filter(Boolean),
+        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        topics: topics.split(',').map(t => t.trim()).filter(Boolean),
+        autoTitle,
+        articleCount: Number(articleCount) || 1,
+        scheduleTime: scheduleTime || undefined,
+        contentSource,
+        engine: contentSource === 'scrapper' ? engine : undefined,
+      };
+  
       // Save config only, do not trigger publish directly
       const response = await fetch(`${API_BASE}/save-config`, {
         method: 'POST',
@@ -83,7 +70,7 @@ const BlogForm = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        navigate('/');
+        setMarkdownContent('Blog(s) generated and published!');
       } else {
         setError(data.error || 'Failed to save blog job');
       }
@@ -95,162 +82,154 @@ const BlogForm = () => {
   };
 
   return (
-    <div className="container">
-      <div className="card">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Create New Blog Post</h2>
-          <button
-            onClick={() => navigate('/')}
-            className="btn-secondary"
-          >
-            Back to Dashboard
-          </button>
+    <form onSubmit={handleSubmit} className="card">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-3xl font-bold text-gray-800">Create New Blog Post</h2>
+      </div>
+
+      {/* Show selected sites info */}
+      {selectedSites.length > 0 && (
+        <div className="space-y-2">
+          <label className="block font-medium text-sm">Publishing to:</label>
+          <ul className="list-disc ml-6">
+            {selectedSites.map((site, i) => (
+              <li key={i} className="text-blue-800 text-sm">{site.url} ({site.username})</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div>
+          <label>Keywords (comma separated)</label>
+          <input
+            type="text"
+            value={keywords}
+            onChange={e => setKeywords(e.target.value)}
+            required
+            placeholder="Enter keywords separated by commas"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Show selected sites info */}
-          {selectedSites.length > 0 && (
-            <div className="space-y-2">
-              <label className="block font-medium text-sm">Publishing to:</label>
-              <ul className="list-disc ml-6">
-                {selectedSites.map((site, i) => (
-                  <li key={i} className="text-blue-800 text-sm">{site.url} ({site.username})</li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <div>
+          <label>Target Links (comma separated)</label>
+          <input
+            type="text"
+            value={links}
+            onChange={e => setLinks(e.target.value)}
+            placeholder="Enter target links separated by commas"
+          />
+        </div>
 
-          <div className="space-y-4">
-            <div>
-              <label>Keywords (comma separated)</label>
+        <div>
+          <label>Tags (comma separated)</label>
+          <input
+            type="text"
+            value={tags}
+            onChange={e => setTags(e.target.value)}
+            placeholder="Enter tags separated by commas"
+          />
+        </div>
+
+        <div>
+          <label>Topics or Titles (comma separated)</label>
+          <input
+            type="text"
+            value={topics}
+            onChange={e => setTopics(e.target.value)}
+            disabled={autoTitle}
+            placeholder="Enter topics separated by commas"
+          />
+          <div className="mt-2">
+            <label className="inline-flex items-center cursor-pointer">
               <input
-                type="text"
-                value={keywords}
-                onChange={e => setKeywords(e.target.value)}
-                required
-                placeholder="Enter keywords separated by commas"
+                type="checkbox"
+                checked={autoTitle}
+                onChange={e => setAutoTitle(e.target.checked)}
+                className="form-checkbox h-4 w-4 text-blue-600"
               />
-            </div>
-
-            <div>
-              <label>Target Links (comma separated)</label>
-              <input
-                type="text"
-                value={links}
-                onChange={e => setLinks(e.target.value)}
-                placeholder="Enter target links separated by commas"
-              />
-            </div>
-
-            <div>
-              <label>Tags (comma separated)</label>
-              <input
-                type="text"
-                value={tags}
-                onChange={e => setTags(e.target.value)}
-                placeholder="Enter tags separated by commas"
-              />
-            </div>
-
-            <div>
-              <label>Topics or Titles (comma separated)</label>
-              <input
-                type="text"
-                value={topics}
-                onChange={e => setTopics(e.target.value)}
-                disabled={autoTitle}
-                placeholder="Enter topics separated by commas"
-              />
-              <div className="mt-2">
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={autoTitle}
-                    onChange={e => setAutoTitle(e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-blue-600"
-                  />
-                  <span className="ml-2 text-gray-700">Auto-generate titles from keywords</span>
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label>Number of Articles</label>
-              <input
-                type="number"
-                value={articleCount}
-                onChange={e => setArticleCount(Number(e.target.value))}
-                min="1"
-                required
-                className="w-32"
-              />
-            </div>
-
-            <div>
-              <label>Schedule Time (optional)</label>
-              <input
-                type="datetime-local"
-                value={scheduleTime}
-                onChange={e => setScheduleTime(e.target.value)}
-                className="w-full"
-              />
-              <p className="text-sm text-gray-500 mt-1">Leave empty to publish immediately</p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block font-medium mb-1">Content Source</label>
-              <select
-                value={contentSource}
-                onChange={e => setContentSource(e.target.value)}
-                className="form-select border rounded px-3 py-2"
-              >
-                <option value="openai">AI (OpenAI)</option>
-                <option value="scrapper">Scrapper</option>
-              </select>
-            </div>
-            {contentSource === 'scrapper' && (
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Scrapper Engine</label>
-                <select
-                  value={engine}
-                  onChange={e => setEngine(e.target.value)}
-                  className="form-select border rounded px-3 py-2"
-                >
-                  <option value="google">Google</option>
-                  <option value="bing">Bing</option>
-                  <option value="duckduckgo">DuckDuckGo</option>
-                  <option value="yahoo">Yahoo</option>
-                </select>
-              </div>
-            )}
-
-            {/* {contentSource === 'scrapper' && (
-              <div>
-                <label>Scraped Content Preview (Markdown)</label>
-                <MarkdownEditor value={markdownContent} onChange={setMarkdownContent} />
-              </div>
-            )} */}
+              <span className="ml-2 text-gray-700">Auto-generate titles from keywords</span>
+            </label>
           </div>
+        </div>
 
-          {error && <div className="error-message">{error}</div>}
+        <div>
+          <label>Number of Articles</label>
+          <input
+            type="number"
+            value={articleCount}
+            onChange={e => setArticleCount(Number(e.target.value))}
+            min="1"
+            required
+            className="w-32"
+          />
+        </div>
 
-          <button
-            type="submit"
-            className="btn-primary w-full py-3 text-lg"
-            disabled={loading || selectedSites.length === 0}
+        <div>
+          <label>Schedule Time (optional)</label>
+          <input
+            type="datetime-local"
+            value={scheduleTime}
+            onChange={e => setScheduleTime(e.target.value)}
+            className="w-full"
+          />
+          <p className="text-sm text-gray-500 mt-1">Leave empty to publish immediately</p>
+        </div>
+
+        <div className="mb-4">
+          <label className="block font-medium mb-1">Content Source</label>
+          <select
+            value={contentSource}
+            onChange={e => setContentSource(e.target.value)}
+            className="form-select border rounded px-3 py-2"
           >
-            {loading ? (
-              <span className="flex items-center justify-center">
-                <div className="spinner mr-2"></div>
-                Publishing...
-              </span>
-            ) : (
-              'Generate and Publish'
-            )}
-          </button>
-        </form>
+            <option value="openai">AI (OpenAI)</option>
+            <option value="scrapper">Scrapper</option>
+          </select>
+        </div>
+        {contentSource === 'scrapper' && (
+          <div className="mb-4">
+            <label className="block font-medium mb-1">Scrapper Engine</label>
+            <select
+              value={engine}
+              onChange={e => setEngine(e.target.value)}
+              className="form-select border rounded px-3 py-2"
+            >
+              <option value="google">Google</option>
+              <option value="bing">Bing</option>
+              <option value="duckduckgo">DuckDuckGo</option>
+              <option value="yahoo">Yahoo</option>
+            </select>
+          </div>
+        )}
+
+        {/* {contentSource === 'scrapper' && (
+          <div>
+            <label>Scraped Content Preview (Markdown)</label>
+            <MarkdownEditor value={markdownContent} onChange={setMarkdownContent} />
+          </div>
+        )} */}
       </div>
-    </div>
+
+      {error && <div className="error-message">{error}</div>}
+
+      <button
+        type="submit"
+        className="btn-primary w-full py-3 text-lg"
+        disabled={loading || selectedSites.length === 0}
+      >
+        {loading ? (
+          <span className="flex items-center justify-center">
+            <div className="spinner mr-2"></div>
+            Publishing...
+          </span>
+        ) : (
+          'Generate and Publish'
+        )}
+      </button>
+
+      {markdownContent && <div className="success-message">{markdownContent}</div>}
+    </form>
   );
 };
 
