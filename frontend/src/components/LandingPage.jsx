@@ -50,9 +50,7 @@ const LandingPage = () => {
   }, []);
 
   return (
-    <div className="container mx-auto px-4 py-8">
       <div className="landing-page container mx-auto">
-        <div className="flex justify-between items-center mb-8">
           <header className="landing-header">
             <h1 className="text-4xl md:text-5xl font-extrabold text-gray-800 drop-shadow-sm mb-6">
               Blog Generator Dashboard
@@ -124,8 +122,6 @@ const LandingPage = () => {
             />
           )}
         </div>
-      </div>
-    </div>
   );
 };
 
