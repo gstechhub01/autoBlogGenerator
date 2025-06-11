@@ -1,0 +1,31 @@
+{
+  "name": "seo-blog-generator",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node models/scrapperBot.js"
+  },
+  "author": "gstechhub",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "2captcha": "^3.0.5-2",
+    "axios": "^1.9.0",
+    "btoa": "^1.2.1",
+    "chrome-aws-lambda": "^10.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "node-cron": "^4.0.3",
+    "node-fetch": "^2.6.11",
+    "openai": "^4.97.0",
+    "puppeteer": "^24.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-recaptcha": "^3.6.8",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0"
+  }
+}

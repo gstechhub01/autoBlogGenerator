@@ -1,0 +1,41 @@
+{
+  "query": "How to manage your health in Raining Season",
+  "engine": "yahoo",
+  "title": "How to manage your health in Raining Season - Yahoo Search Results",
+  "firstHeading": "Videos",
+  "qa": [
+    {
+      "question": "How to protect your health during the rainy season?",
+      "answer": "How to protect your health during the rainy season?"
+    },
+    {
+      "question": "How can you stay healthy during the rains?",
+      "answer": "How can you stay healthy during the rains?"
+    },
+    {
+      "question": "Is the rainy season affecting your health?",
+      "answer": "Is the rainy season affecting your health?"
+    },
+    {
+      "question": "What health problems are common during the rainy season?",
+      "answer": "What health problems are common during the rainy season?"
+    },
+    {
+      "question": "How do you stay safe during the rainy season?",
+      "answer": "How do you stay safe during the rainy season?"
+    },
+    {
+      "question": "Why do people get sick during the rainy season?",
+      "answer": "Why do people get sick during the rainy season?"
+    }
+  ],
+  "keywords": [
+    "How to manage your health in Raining Season"
+  ],
+  "links": [],
+  "debug": {
+    "searchUrl": "https://search.yahoo.com/search?p=How%20to%20manage%20your%20health%20in%20Raining%20Season",
+    "totalPairs": 6,
+    "timestamp": "2025-06-09T17:26:05.019Z"
+  }
+}
