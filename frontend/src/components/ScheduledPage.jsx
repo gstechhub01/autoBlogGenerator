@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Navigation from './Navigation';
 
 const ScheduledPage = () => {
   const [scheduledConfigs, setScheduledConfigs] = useState([]);
@@ -23,11 +24,7 @@ const ScheduledPage = () => {
 
   return (
     <div className="container">
-      <nav style={{ marginBottom: '1rem' }}>
-        <Link to="/" className="btn-secondary" style={{ marginRight: 8 }}>Home</Link>
-        <Link to="/posts" className="btn-secondary" style={{ marginRight: 8 }}>Published Posts</Link>
-        <Link to="/scheduled" className="btn-secondary">Scheduled Posts</Link>
-      </nav>
+      <Navigation />
       <h2>Scheduled Blog Posts</h2>
       <div className="card">
         {scheduledConfigs.length === 0 ? (
