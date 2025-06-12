@@ -35,7 +35,7 @@ function resolveSites(siteIdentifiers, allSites) {
 
 function findOrCreateConfig(configs, reqBody, matchedSites) {
   const {
-    id, keywords, links, tags, topics, autoTitle, articleCount, scheduleTime
+    id, keywords, links, tags, topics, autoTitle, articleCount, scheduleTime, keywordsPerArticle
   } = reqBody;
 
   let config = configs.find(c => c.id === id) ||
@@ -50,7 +50,7 @@ function findOrCreateConfig(configs, reqBody, matchedSites) {
     config = {
       id: id || Math.random().toString(36).slice(2),
       keywords, links, tags, topics, autoTitle,
-      articleCount, scheduleTime,
+      articleCount, scheduleTime, keywordsPerArticle: keywordsPerArticle || 1,
       hasRun: false, published: false,
       publishedUrl: null, publishedUrls: [],
       publishLog: [], lastError: null,
@@ -64,7 +64,14 @@ function findOrCreateConfig(configs, reqBody, matchedSites) {
 
 // Main article processing function
 async function processArticle(config, i, sites) {
-  const keyword = config.keywords[i % config.keywords.length];
+  const keywordsPerArticle = config.keywordsPerArticle || 1;
+  const keywordStart = (i * keywordsPerArticle) % config.keywords.length;
+  const selectedKeywords = config.keywords.slice(keywordStart, keywordStart + keywordsPerArticle);
+  // If not enough keywords at the end, wrap around
+  while (selectedKeywords.length < keywordsPerArticle) {
+    selectedKeywords.push(...config.keywords.slice(0, keywordsPerArticle - selectedKeywords.length));
+  }
+  const keyword = selectedKeywords.join(', ');
   const link = config.links[i % config.links.length];
   const topic = config.topics && config.topics.length > 0 ? config.topics[i % config.topics.length] : keyword;
   const title = config.autoTitle ? null : topic;
@@ -72,14 +79,18 @@ async function processArticle(config, i, sites) {
 
   if (config.contentSource === 'scrapper') {
     const engine = config.engine || 'google';
-    console.log(`[Scrapper] Generating article for keyword: ${keyword}, engine: ${engine}`);
+    console.log(`[Scrapper] Generating article for keywords: ${keyword}, engine: ${engine}`);
     const scraped = await scrapeWithPuppeteer(keyword, engine);
     // Prepare anchor tag for replacement
     const anchorTag = link ? `<a href="${link}" target="_blank" rel="noopener noreferrer">${keyword}</a>` : keyword;
     function replaceKeywordWithAnchor(text) {
       if (!text) return '';
-      const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'gi');
-      return text.replace(regex, anchorTag);
+      let replaced = text;
+      selectedKeywords.forEach(kw => {
+        const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'gi');
+        replaced = replaced.replace(regex, anchorTag);
+      });
+      return replaced;
     }
     const sections = (scraped.qa || []).map(q => ({
       heading: q.question,
@@ -102,7 +113,7 @@ async function processArticle(config, i, sites) {
     };
   } else if (config.contentSource === 'openai') {
     // Use OpenAI to generate blog JSON
-    console.log(`[OpenAI] Generating article for keyword: ${keyword}`);
+    console.log(`[OpenAI] Generating article for keywords: ${keyword}`);
     blogJSON = await generateBlogJSON({ title: title || undefined, keyword, link });
     // Optionally, you can post-process blogJSON to match the same structure as above if needed
     blogJSON.targetKeyword = keyword;

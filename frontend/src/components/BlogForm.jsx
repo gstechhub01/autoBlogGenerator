@@ -18,6 +18,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   const [publishResults, setPublishResults] = useState(null);
   const [contentSource, setContentSource] = useState(initialContentSource);
   const [engine, setEngine] = useState(initialEngine);
+  const [keywordsPerArticle, setKeywordsPerArticle] = useState(1);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -64,6 +65,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
         scheduleTime: scheduleTime || undefined,
         contentSource,
         engine: contentSource === 'scrapper' ? engine : undefined,
+        keywordsPerArticle: Number(keywordsPerArticle) || 1,
       };
 
       // Save config only, do not trigger publish directly
@@ -166,6 +168,18 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
             type="number"
             value={articleCount}
             onChange={e => setArticleCount(Number(e.target.value))}
+            min="1"
+            required
+            className="w-32"
+          />
+        </div>
+
+        <div>
+          <label>Keywords Per Article</label>
+          <input
+            type="number"
+            value={keywordsPerArticle || 1}
+            onChange={e => setKeywordsPerArticle(Number(e.target.value))}
             min="1"
             required
             className="w-32"
