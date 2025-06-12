@@ -1,0 +1,59 @@
+// This Prisma schema is designed to migrate your local SQLite and JSON config data to Prisma Cloud.
+// Adjust field types and relations as needed for your actual data structure.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // For Prisma Cloud, use PostgreSQL
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime @updatedAt
+  articles     Article[]
+  siteConfigs  SiteConfig[]
+  blogConfigs  BlogConfig[]
+}
+
+model BlogConfig {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  sites        String   // JSON stringified array or create a related SiteConfig table
+  keywords     String   // JSON stringified array
+  links        String   // JSON stringified array
+  tags         String   // JSON stringified array
+  topics       String   // JSON stringified array
+  autoTitle    Boolean
+  articleCount Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SiteConfig {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  url       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Article {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
