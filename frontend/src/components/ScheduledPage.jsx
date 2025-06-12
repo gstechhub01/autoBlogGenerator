@@ -4,7 +4,7 @@ import Navigation from './Navigation';
 
 const ScheduledPage = () => {
   const [scheduledConfigs, setScheduledConfigs] = useState([]);
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     const fetchScheduledConfigs = async () => {
