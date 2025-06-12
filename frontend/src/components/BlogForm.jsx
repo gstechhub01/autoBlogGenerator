@@ -13,6 +13,7 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
   const [scheduleTime, setScheduleTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [markdownContent, setMarkdownContent] = useState('');
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
@@ -46,6 +47,7 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
     try {
       const payload = {
         sites: selectedSites.map(site => ({ url: site.url, username: site.username })),
@@ -69,8 +71,9 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-      if (response.ok) {
-        setMarkdownContent('Blog(s) generated and published!');
+      if (response.ok && data.success) {
+        setSuccess('Blog config saved successfully!');
+        setMarkdownContent('');
       } else {
         setError(data.error || 'Failed to save blog job');
       }
@@ -212,6 +215,7 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
       </div>
 
       {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
 
       <button
         type="submit"

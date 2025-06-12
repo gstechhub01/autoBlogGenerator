@@ -537,5 +537,83 @@
     "publishedUrl": "https://winxare.com.ng/2025/06/09/what-you-need-to-start-working-from-home-yahoo-search-results/",
     "published": true,
     "lastError": null
+  },
+  {
+    "sites": [
+      {
+        "url": "https://globalbasemedia.com.ng",
+        "username": "gsnigeriatech@gmail.com"
+      }
+    ],
+    "keywords": [
+      "to digital marketing company in Nigeria"
+    ],
+    "links": [
+      "gstechhub.com.ng"
+    ],
+    "tags": [],
+    "topics": [],
+    "autoTitle": true,
+    "articleCount": 1,
+    "contentSource": "openai",
+    "engine": null,
+    "id": "fa7077ca-7c95-4e19-a6ac-25752a51d642",
+    "hasRun": true,
+    "publishLog": [
+      {
+        "timestamp": "2025-06-12T08:50:47.989Z",
+        "status": "success",
+        "siteUrl": "https://globalbasemedia.com.ng",
+        "postUrl": "https://globalbasemedia.com.ng/2025/06/12/the-ultimate-guide-to-choosing-a-digital-marketing-company-in-nigeria/",
+        "error": null
+      }
+    ],
+    "publishedUrls": [
+      {
+        "siteUrl": "https://globalbasemedia.com.ng",
+        "url": "https://globalbasemedia.com.ng/2025/06/12/the-ultimate-guide-to-choosing-a-digital-marketing-company-in-nigeria/"
+      }
+    ],
+    "publishedUrl": "https://globalbasemedia.com.ng/2025/06/12/the-ultimate-guide-to-choosing-a-digital-marketing-company-in-nigeria/",
+    "published": true,
+    "lastError": null
+  },
+  {
+    "sites": [
+      {
+        "url": "https://globalbasemedia.com.ng",
+        "username": "gsnigeriatech@gmail.com"
+      }
+    ],
+    "keywords": [
+      "digital marketing agency"
+    ],
+    "links": [],
+    "tags": [],
+    "topics": [],
+    "autoTitle": true,
+    "articleCount": 1,
+    "contentSource": "openai",
+    "engine": null,
+    "id": "0457976d-dfba-42a2-86d1-dc5e50d1c3e8",
+    "hasRun": true,
+    "publishLog": [
+      {
+        "timestamp": "2025-06-12T10:19:47.068Z",
+        "status": "success",
+        "siteUrl": "https://globalbasemedia.com.ng",
+        "postUrl": "https://globalbasemedia.com.ng/2025/06/12/unlocking-success-with-a-digital-marketing-agency/",
+        "error": null
+      }
+    ],
+    "publishedUrls": [
+      {
+        "siteUrl": "https://globalbasemedia.com.ng",
+        "url": "https://globalbasemedia.com.ng/2025/06/12/unlocking-success-with-a-digital-marketing-agency/"
+      }
+    ],
+    "publishedUrl": "https://globalbasemedia.com.ng/2025/06/12/unlocking-success-with-a-digital-marketing-agency/",
+    "published": true,
+    "lastError": null
   }
 ]

@@ -84,7 +84,7 @@ const LandingPage = () => {
             <h2 className="text-xl font-bold text-blue-700 mb-4 text-center">Create New Blog Post</h2>
             <BlogForm selectedSites={selectedSites.map(i => siteConfigs[i] || {})} />
           </div>
-          <div className="block md:hidden mt-8 card bg-white border-blue-100 shadow-sm opacity-90">
+          {/* <div className="block md:hidden mt-8 card bg-white border-blue-100 shadow-sm opacity-90">
             <h2 className="text-lg font-semibold text-blue-700 mb-3">Configured Sites</h2>
             {siteConfigs.length === 0 ? (
               <p className="text-gray-400 italic">No site configurations found.</p>
@@ -110,7 +110,7 @@ const LandingPage = () => {
             >
               Manage Sites
             </button>
-          </div>
+          </div> */}
         </section>
       </main>
       {showSiteConfigModal && (

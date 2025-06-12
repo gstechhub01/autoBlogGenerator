@@ -33,7 +33,6 @@ router.post('/save-config', (req, res) => {
       id: uuidv4(),
       hasRun: false,
     };
-
     configs.push(newConfig);
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(configs, null, 2), 'utf-8');
 
