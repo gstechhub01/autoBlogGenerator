@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'google' }) => {
+const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'openai', engine: initialEngine = 'google' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [keywords, setKeywords] = useState('');
@@ -15,6 +15,9 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [markdownContent, setMarkdownContent] = useState('');
+  const [publishResults, setPublishResults] = useState(null);
+  const [contentSource, setContentSource] = useState(initialContentSource);
+  const [engine, setEngine] = useState(initialEngine);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
@@ -48,6 +51,7 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
     setLoading(true);
     setError(null);
     setSuccess(null);
+    setPublishResults(null);
     try {
       const payload = {
         sites: selectedSites.map(site => ({ url: site.url, username: site.username })),
@@ -61,7 +65,7 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
         contentSource,
         engine: contentSource === 'scrapper' ? engine : undefined,
       };
-  
+
       // Save config only, do not trigger publish directly
       const response = await fetch(`${API_BASE}/save-config`, {
         method: 'POST',
@@ -216,6 +220,21 @@ const BlogForm = ({ selectedSites = [], contentSource = 'openai', engine = 'goog
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
+      {publishResults && (
+        <div className="mt-4">
+          <h3 className="font-semibold mb-2">Publishing Results:</h3>
+          <ul className="text-sm space-y-1">
+            {Array.isArray(publishResults) ? publishResults.map((res, idx) => (
+              <li key={idx} className={res.status === 'success' ? 'text-green-700' : 'text-red-700'}>
+                {res.siteUrl || res.site}: {res.status === 'success' ? `Success${res.postUrl ? ` - ${res.postUrl}` : ''}` : `Error: ${res.error || 'Unknown error'}`}
+              </li>
+            )) : <li>{JSON.stringify(publishResults)}</li>}
+          </ul>
+          {contentSource === 'scrapper' && (
+            <div className="mt-2 text-xs text-gray-600">Scrapper Engine Used: <span className="font-mono">{engine}</span></div>
+          )}
+        </div>
+      )}
 
       <button
         type="submit"

@@ -615,5 +615,43 @@
     "publishedUrl": "https://globalbasemedia.com.ng/2025/06/12/unlocking-success-with-a-digital-marketing-agency/",
     "published": true,
     "lastError": null
+  },
+  {
+    "sites": [
+      {
+        "url": "https://globalbasemedia.com.ng",
+        "username": "gsnigeriatech@gmail.com"
+      }
+    ],
+    "keywords": [
+      "content marketer"
+    ],
+    "links": [],
+    "tags": [],
+    "topics": [],
+    "autoTitle": true,
+    "articleCount": 1,
+    "contentSource": "scrapper",
+    "engine": "yahoo",
+    "id": "75aec13b-fe4e-4e9b-844d-f945e7919c66",
+    "hasRun": true,
+    "publishLog": [
+      {
+        "timestamp": "2025-06-12T10:54:18.004Z",
+        "status": "success",
+        "siteUrl": "https://globalbasemedia.com.ng",
+        "postUrl": "https://globalbasemedia.com.ng/2025/06/12/content-marketer-yahoo-search-results/",
+        "error": null
+      }
+    ],
+    "publishedUrls": [
+      {
+        "siteUrl": "https://globalbasemedia.com.ng",
+        "url": "https://globalbasemedia.com.ng/2025/06/12/content-marketer-yahoo-search-results/"
+      }
+    ],
+    "publishedUrl": "https://globalbasemedia.com.ng/2025/06/12/content-marketer-yahoo-search-results/",
+    "published": true,
+    "lastError": null
   }
 ]
