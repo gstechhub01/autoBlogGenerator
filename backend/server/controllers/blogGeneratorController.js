@@ -1,10 +1,9 @@
 import { publishToWordPress } from '../../publisher/wp-publisher.js';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { scrapeWithPuppeteer } from '../../models/scrapperBot.js';
 import { generateBlogJSON } from '../../models/openai-content-mo-four.js';
-import { bulkSaveKeywords, markKeywordPublished, getUnpublishedKeywords } from '../database.js';
+import prisma, { getAllKeywords, saveKeyword, markKeywordPublished, getUnpublishedKeywords } from '../database.js';
 import express from 'express';
 
 const router = express.Router();
@@ -12,58 +11,15 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CONFIG_FILE = path.join(__dirname, '..', '..', 'config', 'blog-configs.json');
-const SITE_CONFIG_FILE = path.join(__dirname, '..', '..', 'config', 'site-configs.json');
 const OUTPUT_DIR = path.join(__dirname, '..', '..', 'output');
 
-function readJSON(filePath, fallback = []) {
-  try {
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    }
-  } catch (e) {
-    console.error(`[Read Error] ${filePath}:`, e.message);
+// Helper: resolve sites from DB
+async function resolveSites(siteIdentifiers) {
+  if (!siteIdentifiers?.length) {
+    return await prisma.siteConfig.findMany();
   }
-  return fallback;
-}
-
-function writeJSON(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-function resolveSites(siteIdentifiers, allSites) {
-  return siteIdentifiers?.length
-    ? siteIdentifiers.map(id => allSites.find(cfg => cfg.url === id.url && cfg.username === id.username)).filter(Boolean)
-    : allSites;
-}
-
-function findOrCreateConfig(configs, reqBody, matchedSites) {
-  const {
-    id, keywords, links, tags, topics, autoTitle, articleCount, scheduleTime, keywordsPerArticle
-  } = reqBody;
-
-  let config = configs.find(c => c.id === id) ||
-    configs.find(c =>
-      JSON.stringify(c.keywords) === JSON.stringify(keywords) &&
-      JSON.stringify(c.links) === JSON.stringify(links) &&
-      JSON.stringify(c.tags) === JSON.stringify(tags) &&
-      JSON.stringify(c.topics) === JSON.stringify(topics)
-    );
-
-  if (!config) {
-    config = {
-      id: id || Math.random().toString(36).slice(2),
-      keywords, links, tags, topics, autoTitle,
-      articleCount, scheduleTime, keywordsPerArticle: keywordsPerArticle || 1,
-      hasRun: false, published: false,
-      publishedUrl: null, publishedUrls: [],
-      publishLog: [], lastError: null,
-      articles: [], sites: matchedSites
-    };
-    configs.push(config);
-  }
-
-  return { config, index: configs.findIndex(c => c.id === config.id) };
+  const urls = siteIdentifiers.map(s => s.url);
+  return await prisma.siteConfig.findMany({ where: { url: { in: urls } } });
 }
 
 // Main article processing function
@@ -203,13 +159,32 @@ async function processArticle(config, i, sites) {
 
 export async function generateAndPublishFromConfig(req, res) {
   try {
-    // Load configs and sites
-    const configs = readJSON(CONFIG_FILE, []);
-    const allSites = readJSON(SITE_CONFIG_FILE, []);
+    // Load config and sites from Prisma
     const reqBody = req.body;
-    const matchedSites = resolveSites(reqBody.sites, allSites);
-    const { config, index } = findOrCreateConfig(configs, reqBody, matchedSites);
-
+    let config = await prisma.blogConfig.findFirst({
+      where: {
+        sites: JSON.stringify(reqBody.sites || []),
+        topics: JSON.stringify(reqBody.topics || []),
+        links: JSON.stringify(reqBody.links || []),
+        tags: JSON.stringify(reqBody.tags || []),
+      },
+    });
+    if (!config) {
+      config = await prisma.blogConfig.create({
+        data: {
+          userId: reqBody.userId || 1,
+          sites: JSON.stringify(reqBody.sites || []),
+          keywords: JSON.stringify(reqBody.topics || []),
+          links: JSON.stringify(reqBody.links || []),
+          tags: JSON.stringify(reqBody.tags || []),
+          topics: JSON.stringify(reqBody.topics || []),
+          autoTitle: reqBody.autoTitle ?? true,
+          articleCount: reqBody.articleCount || 1,
+          keywordsPerArticle: reqBody.keywordsPerArticle || 1,
+        },
+      });
+    }
+    const matchedSites = await resolveSites(reqBody.sites);
     // Generate/publish articles
     let allArticles = [], allLogs = [], allUrls = [], publishedAny = false;
     for (let i = 0; i < (config.articleCount || 1); i++) {
@@ -219,30 +194,15 @@ export async function generateAndPublishFromConfig(req, res) {
       allUrls.push(...publishedUrls);
       if (anyPublished) publishedAny = true;
     }
-
-    // Strictly update config to match the required pattern
-    const updatedConfig = {
-      sites: config.sites,
-      keywords: config.keywords,
-      links: config.links,
-      tags: config.tags,
-      topics: config.topics,
-      autoTitle: config.autoTitle,
-      articleCount: config.articleCount,
-      contentSource: config.contentSource,
-      engine: config.engine,
-      id: config.id,
-      hasRun: true,
-      publishLog: allLogs,
-      publishedUrls: allUrls,
-      publishedUrl: allUrls.length > 0 ? allUrls[allUrls.length - 1].url : null,
-      published: publishedAny,
-      lastError: publishedAny ? null : (allArticles.find(a => a.error)?.error || null)
-    };
-    configs[index >= 0 ? index : configs.length - 1] = updatedConfig;
-    writeJSON(CONFIG_FILE, configs);
-
-    res.status(200).json({ success: true, config: updatedConfig, articles: allArticles, publishedUrls: allUrls, publishLog: allLogs });
+    // Update BlogConfig in DB
+    await prisma.blogConfig.update({
+      where: { id: config.id },
+      data: {
+        hasRun: true,
+        // Optionally: store publishLog, publishedUrls, etc. as JSON fields if you add them to schema
+      },
+    });
+    res.status(200).json({ success: true, config, articles: allArticles, publishedUrls: allUrls, publishLog: allLogs });
   } catch (err) {
     console.error('❌ Error in generateAndPublishFromConfig:', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -256,9 +216,11 @@ router.post('/bulk-save-keywords', async (req, res) => {
     if (!Array.isArray(keywords)) {
       return res.status(400).json({ success: false, error: 'Missing keywords' });
     }
-    // If site is not provided, use a default value or null
-    bulkSaveKeywords(keywords, site || '', scheduledTime || null);
-    res.status(200).json({ success: true, message: 'Keywords saved.' });
+    // Save keywords using Prisma
+    const created = await Promise.all(keywords.map(keyword =>
+      prisma.keyword.create({ data: { keyword, site: site || '', scheduledTime: scheduledTime || null } })
+    ));
+    res.status(200).json({ success: true, message: 'Keywords saved.', created });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -268,29 +230,19 @@ router.post('/bulk-save-keywords', async (req, res) => {
 router.get('/unpublished-keywords-count', async (req, res) => {
   const site = req.query.site;
   if (!site) return res.status(400).json({ success: false, error: 'Missing site' });
-  getUnpublishedKeywords(site, 10000, (err, rows) => {
-    if (err) return res.status(500).json({ success: false, error: err.message });
-    res.status(200).json({ success: true, count: rows ? rows.length : 0 });
-  });
+  try {
+    const count = await prisma.keyword.count({ where: { site, published: false } });
+    res.status(200).json({ success: true, count });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // API to get all saved keywords
 router.get('/all-keywords', async (req, res) => {
   try {
-    getUnpublishedKeywords(null, 10000, (err, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
-      // If site is null, fetch all keywords
-      if (!rows || rows.length === 0) {
-        // fallback: fetch all keywords from DB
-        const db = require('../database.js').db;
-        db.all('SELECT * FROM keywords', [], (err2, allRows) => {
-          if (err2) return res.status(500).json({ success: false, error: err2.message });
-          res.status(200).json({ success: true, keywords: allRows });
-        });
-      } else {
-        res.status(200).json({ success: true, keywords: rows });
-      }
-    });
+    const keywords = await getAllKeywords();
+    res.status(200).json({ success: true, keywords });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

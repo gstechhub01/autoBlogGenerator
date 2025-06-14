@@ -19,14 +19,14 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   const [unpublishedCount, setUnpublishedCount] = useState(0);
   const [keywordsPerArticle, setKeywordsPerArticle] = useState(1);
 
-  const API_BASE = import.meta.env.API_BASE_URL;
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
   // Fetch number of unpublished keywords for the first selected site
   useEffect(() => {
     const fetchUnpublishedCount = async () => {
       if (selectedSites.length > 0) {
         try {
-          const res = await fetch(`${VITE_API_BASE_URL}/unpublished-keywords-count?site=${encodeURIComponent(selectedSites[0].url)}`);
+          const res = await fetch(`${API_BASE}/unpublished-keywords-count?site=${encodeURIComponent(selectedSites[0].url)}`);
           const data = await res.json();
           if (data.success) setUnpublishedCount(data.count);
         } catch {}
@@ -193,13 +193,6 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
             </select>
           </div>
         )}
-
-        {/* {contentSource === 'scrapper' && (
-          <div>
-            <label>Scraped Content Preview (Markdown)</label>
-            <MarkdownEditor value={markdownContent} onChange={setMarkdownContent} />
-          </div>
-        )} */}
       </div>
 
       {error && <div className="error-message">{error}</div>}

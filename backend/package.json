@@ -11,6 +11,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@prisma/client": "^6.9.0",
+    "@prisma/extension-accelerate": "^2.0.1",
     "2captcha": "^3.0.5-2",
     "axios": "^1.9.0",
     "btoa": "^1.2.1",
@@ -21,6 +23,7 @@
     "node-cron": "^4.0.3",
     "node-fetch": "^2.6.11",
     "openai": "^4.97.0",
+    "prisma": "^6.9.0",
     "puppeteer": "^24.6.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-recaptcha": "^3.6.8",

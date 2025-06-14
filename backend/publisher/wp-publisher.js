@@ -7,9 +7,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use require for JSON file
-// const config = require('./blog-configs.json'); // Adjust the path if necessary
-
 dotenv.config();
 
 // Upload image helper
@@ -92,7 +89,6 @@ export async function publishToWordPress(blog, site) {
       }
     });
     console.log("post Response:", postRes.data);
-    // Do NOT update blog-configs.json here. Let the controller handle it.
     return postRes.data;
   } catch (err) {
     console.error('Error publishing post:', err.response?.data || err.message);

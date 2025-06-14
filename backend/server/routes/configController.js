@@ -1,41 +1,27 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
+import prisma from '../database.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
-const CONFIG_DIR = path.join(process.cwd(), 'config');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'blog-configs.json');
-
-// Ensure config directory and file exist
-function ensureConfigFile() {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(CONFIG_FILE)) {
-    fs.writeFileSync(CONFIG_FILE, '[]', 'utf-8'); // Start with empty array
-  }
-}
-
-// POST /api/save-config (append new blog config)
-router.post('/save-config', (req, res) => {
+// POST /api/save-config (create new blog config)
+router.post('/save-config', async (req, res) => {
   try {
-    ensureConfigFile();
     const config = req.body;
-    const configs = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-
-    // Accept contentSource and engine from frontend
-    const newConfig = {
-      ...config,
-      contentSource: config.contentSource || 'openai', // 'openai' or 'scrapper'
-      engine: config.engine || null, // e.g., 'google', 'bing', etc. if scrapper
-      id: uuidv4(),
-      hasRun: false,
-    };
-    configs.push(newConfig);
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(configs, null, 2), 'utf-8');
-
+    // Save config to BlogConfig table
+    const newConfig = await prisma.blogConfig.create({
+      data: {
+        userId: config.userId || 1, // TODO: Replace with real user auth
+        sites: JSON.stringify(config.sites || []),
+        keywords: JSON.stringify(config.topics || []),
+        links: JSON.stringify(config.links || []),
+        tags: JSON.stringify(config.tags || []),
+        topics: JSON.stringify(config.topics || []),
+        autoTitle: config.autoTitle ?? true,
+        articleCount: config.articleCount || 1,
+        keywordsPerArticle: config.keywordsPerArticle || 1,
+      },
+    });
     res.status(200).json({ success: true, message: 'Blog config saved.', config: newConfig });
   } catch (err) {
     console.error('❌ Error saving blog config:', err);
@@ -43,122 +29,35 @@ router.post('/save-config', (req, res) => {
   }
 });
 
-// GET /api/configs (return all)
-router.get('/configs', (req, res) => {
+// GET /api/configs (get all blog configs)
+router.get('/configs', async (req, res) => {
   try {
-    ensureConfigFile();
-    const configs = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+    const configs = await prisma.blogConfig.findMany();
     res.status(200).json({ success: true, configs });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// GET /api/site-configs (return all site configs)
-router.get('/site-configs', (req, res) => {
+// GET /api/config/:id (get a single config)
+router.get('/config/:id', async (req, res) => {
   try {
-    const siteConfigPath = path.join(CONFIG_DIR, 'site-configs.json');
-    if (!fs.existsSync(siteConfigPath)) {
-      fs.writeFileSync(siteConfigPath, '[]', 'utf-8');
-    }
-    const siteConfigs = JSON.parse(fs.readFileSync(siteConfigPath, 'utf-8'));
-    res.status(200).json({ success: true, siteConfigs });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/save-site-configs (save all site configs)
-router.post('/save-site-configs', (req, res) => {
-  try {
-    const siteConfigPath = path.join(CONFIG_DIR, 'site-configs.json');
-    const { sites } = req.body;
-    if (!Array.isArray(sites)) {
-      return res.status(400).json({ success: false, error: 'Sites must be an array.' });
-    }
-    // Read existing configs
-    let existingSites = [];
-    if (fs.existsSync(siteConfigPath)) {
-      existingSites = JSON.parse(fs.readFileSync(siteConfigPath, 'utf-8'));
-    }
-    // Merge: keep unique by url+username
-    const mergedSites = [...existingSites];
-    for (const newSite of sites) {
-      const exists = mergedSites.some(site => site.url === newSite.url && site.username === newSite.username);
-      if (!exists) {
-        mergedSites.push(newSite);
-      }
-    }
-    fs.writeFileSync(siteConfigPath, JSON.stringify(mergedSites, null, 2), 'utf-8');
-    res.status(200).json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/publish-log/:id (get publish log and status for a config)
-router.get('/publish-log/:id', (req, res) => {
-  try {
-    ensureConfigFile();
     const { id } = req.params;
-    const configs = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-    const config = configs.find(c => c.id === id);
+    const config = await prisma.blogConfig.findUnique({ where: { id: Number(id) } });
     if (!config) {
       return res.status(404).json({ success: false, error: 'Config not found' });
     }
-    res.status(200).json({
-      success: true,
-      publishLog: config.publishLog || [],
-      published: config.published || false,
-      publishedUrl: config.publishedUrl || null,
-      hasRun: config.hasRun || false,
-      lastError: config.lastError || null,
-      scheduleTime: config.scheduleTime || null
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/published-posts (return all published posts with URLs and site info)
-router.get('/published-posts', (req, res) => {
-  try {
-    ensureConfigFile();
-    const configs = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-    // Flatten all publishLog entries with status 'success' and a postUrl
-    const posts = [];
-    configs.forEach(cfg => {
-      if (Array.isArray(cfg.publishLog)) {
-        cfg.publishLog.forEach(log => {
-          if (log.status === 'success' && log.postUrl) {
-            posts.push({
-              title: (cfg.keywords && cfg.keywords.length > 0) ? cfg.keywords[0] : 'Untitled',
-              siteUrl: log.siteUrl,
-              postUrl: log.postUrl,
-              publishedAt: log.timestamp
-            });
-          }
-        });
-      }
-    });
-    res.status(200).json({ success: true, posts });
+    res.status(200).json({ success: true, config });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // DELETE /api/delete-published/:id (delete a published blog config by id)
-router.delete('/delete-published/:id', (req, res) => {
+router.delete('/delete-published/:id', async (req, res) => {
   try {
-    ensureConfigFile();
     const { id } = req.params;
-    let configs = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-    const initialLength = configs.length;
-    configs = configs.filter(cfg => cfg.id !== id);
-    if (configs.length === initialLength) {
-      return res.status(404).json({ success: false, error: 'Config not found' });
-    }
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(configs, null, 2), 'utf-8');
+    await prisma.blogConfig.delete({ where: { id: Number(id) } });
     res.status(200).json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -166,17 +65,32 @@ router.delete('/delete-published/:id', (req, res) => {
 });
 
 // DELETE /api/delete-all-published (delete all published blog configs)
-router.delete('/delete-all-published', (req, res) => {
+router.delete('/delete-all-published', async (req, res) => {
   try {
-    ensureConfigFile();
-    let configs = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-    const initialLength = configs.length;
-    configs = configs.filter(cfg => !cfg.hasRun);
-    if (configs.length === initialLength) {
-      return res.status(404).json({ success: false, error: 'No published configs found' });
-    }
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(configs, null, 2), 'utf-8');
+    await prisma.blogConfig.deleteMany({});
     res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// SiteConfig CRUD (example: add more as needed)
+router.post('/save-site', async (req, res) => {
+  try {
+    const { name, url, userId } = req.body;
+    const site = await prisma.siteConfig.create({
+      data: { name, url, userId: userId || 1 },
+    });
+    res.status(200).json({ success: true, site });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/sites', async (req, res) => {
+  try {
+    const sites = await prisma.siteConfig.findMany();
+    res.status(200).json({ success: true, sites });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
