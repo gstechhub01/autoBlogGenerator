@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 
 import configRoutes from './routes/configController.js';
+import blogGeneratorController from './controllers/blogGeneratorController.js';
 import { startBlogScheduler } from './scheduler/blogScheduler.js';
 import { generateAndPublishFromConfig } from './controllers/blogGeneratorController.js';
 
@@ -19,6 +20,7 @@ startBlogScheduler(app);
 
 // Route for saving config
 app.use('/api', configRoutes);
+app.use('/api', blogGeneratorController);
 
 // Direct POST route to generate and publish
 app.post('/api/generate-and-publish', generateAndPublishFromConfig);

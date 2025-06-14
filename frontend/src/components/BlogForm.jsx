@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'openai', engine: initialEngine = 'google' }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [keywords, setKeywords] = useState('');
   const [links, setLinks] = useState('');
   const [tags, setTags] = useState('');
   const [topics, setTopics] = useState('');
   const [autoTitle, setAutoTitle] = useState(true);
   const [articleCount, setArticleCount] = useState(1);
-  const [scheduleTime, setScheduleTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -18,34 +16,26 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   const [publishResults, setPublishResults] = useState(null);
   const [contentSource, setContentSource] = useState(initialContentSource);
   const [engine, setEngine] = useState(initialEngine);
+  const [unpublishedCount, setUnpublishedCount] = useState(0);
   const [keywordsPerArticle, setKeywordsPerArticle] = useState(1);
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL;
+  const API_BASE = import.meta.env.API_BASE_URL;
 
-  // Fetch scraped content when contentSource or keywords or engine changes
+  // Fetch number of unpublished keywords for the first selected site
   useEffect(() => {
-    const fetchScrapedContent = async () => {
-      if (contentSource === 'scrapper' && keywords && engine) {
+    const fetchUnpublishedCount = async () => {
+      if (selectedSites.length > 0) {
         try {
-          const response = await fetch(`${API_BASE}/scrape`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: keywords.split(',')[0], engine }),
-          });
-          const data = await response.json();
-          if (data.success && data.result && data.result.content) {
-            setMarkdownContent(data.result.content);
-          } else {
-            setMarkdownContent('');
-          }
-        } catch (err) {
-          setMarkdownContent('');
-        }
+          const res = await fetch(`${VITE_API_BASE_URL}/unpublished-keywords-count?site=${encodeURIComponent(selectedSites[0].url)}`);
+          const data = await res.json();
+          if (data.success) setUnpublishedCount(data.count);
+        } catch {}
+      } else {
+        setUnpublishedCount(0);
       }
     };
-    fetchScrapedContent();
-    // eslint-disable-next-line
-  }, [contentSource, keywords, engine]);
+    fetchUnpublishedCount();
+  }, [selectedSites, API_BASE]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,16 +46,13 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
     try {
       const payload = {
         sites: selectedSites.map(site => ({ url: site.url, username: site.username })),
-        keywords: keywords.split(',').map(k => k.trim()).filter(Boolean),
         links: links.split(',').map(l => l.trim()).filter(Boolean),
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         topics: topics.split(',').map(t => t.trim()).filter(Boolean),
         autoTitle,
         articleCount: Number(articleCount) || 1,
-        scheduleTime: scheduleTime || undefined,
         contentSource,
         engine: contentSource === 'scrapper' ? engine : undefined,
-        keywordsPerArticle: Number(keywordsPerArticle) || 1,
       };
 
       // Save config only, do not trigger publish directly
@@ -93,7 +80,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   return (
     <form onSubmit={handleSubmit} className="card">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800">Create New Blog Post</h2>
+        <h2 className="text-3xl font-bold text-gray-800">Publish Blog Post</h2>
       </div>
 
       {/* Show selected sites info */}
@@ -105,21 +92,13 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
               <li key={i} className="text-blue-800 text-sm">{site.url} ({site.username})</li>
             ))}
           </ul>
+          <div className="mt-2 text-green-700 text-sm">
+            Unpublished keywords available: <b>{unpublishedCount}</b>
+          </div>
         </div>
       )}
 
       <div className="space-y-4">
-        <div>
-          <label>Keywords (comma separated)</label>
-          <input
-            type="text"
-            value={keywords}
-            onChange={e => setKeywords(e.target.value)}
-            required
-            placeholder="Enter keywords separated by commas"
-          />
-        </div>
-
         <div>
           <label>Target Links (comma separated)</label>
           <input
@@ -181,20 +160,11 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
             value={keywordsPerArticle || 1}
             onChange={e => setKeywordsPerArticle(Number(e.target.value))}
             min="1"
+            max={unpublishedCount || 1}
             required
             className="w-32"
           />
-        </div>
-
-        <div>
-          <label>Schedule Time (optional)</label>
-          <input
-            type="datetime-local"
-            value={scheduleTime}
-            onChange={e => setScheduleTime(e.target.value)}
-            className="w-full"
-          />
-          <p className="text-sm text-gray-500 mt-1">Leave empty to publish immediately</p>
+          <p className="text-xs text-gray-500 mt-1">Number of keywords to use per article (max: {unpublishedCount || 1})</p>
         </div>
 
         <div className="mb-4">
@@ -253,7 +223,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
       <button
         type="submit"
         className="btn-primary w-full py-3 text-lg"
-        disabled={loading || selectedSites.length === 0}
+        disabled={loading || selectedSites.length === 0 || unpublishedCount === 0}
       >
         {loading ? (
           <span className="flex items-center justify-center">

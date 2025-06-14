@@ -41,7 +41,54 @@ const createArticlesTable = () => {
   });
 };
 
+// Create the table for storing keywords
+const createKeywordsTable = () => {
+  const query = `
+    CREATE TABLE IF NOT EXISTS keywords (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      keyword TEXT NOT NULL,
+      site TEXT NOT NULL,
+      published INTEGER DEFAULT 0,
+      scheduled_time TEXT
+    )
+  `;
+  db.run(query, (err) => {
+    if (err) {
+      console.error('❌ Error creating keywords table:', err.message);
+    } else {
+      console.log('✅ Keywords table created or exists.');
+    }
+  });
+};
+
+// Bulk insert or update keywords
+function bulkSaveKeywords(keywords, site, scheduledTime = null) {
+  if (!Array.isArray(keywords) || !site) return;
+  const stmt = db.prepare(`INSERT OR IGNORE INTO keywords (keyword, site, published, scheduled_time) VALUES (?, ?, 0, ?)`);
+  keywords.forEach(kw => {
+    stmt.run(kw, site, scheduledTime);
+  });
+  stmt.finalize();
+}
+
+// Mark keyword as published
+function markKeywordPublished(keyword, site) {
+  db.run(`UPDATE keywords SET published = 1 WHERE keyword = ? AND site = ?`, [keyword, site]);
+}
+
+// Get unpublished keywords for a site, with limit
+function getUnpublishedKeywords(site, limit = 5, callback) {
+  db.all(`SELECT * FROM keywords WHERE site = ? AND published = 0 LIMIT ?`, [site, limit], (err, rows) => {
+    if (err) {
+      callback(err, null);
+    } else {
+      callback(null, rows);
+    }
+  });
+}
+
 // Create tables when the app starts
 createArticlesTable();
+createKeywordsTable();
 
-export { db };
+export { db, bulkSaveKeywords, markKeywordPublished, getUnpublishedKeywords };

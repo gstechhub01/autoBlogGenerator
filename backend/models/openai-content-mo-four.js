@@ -4,7 +4,7 @@ dotenv.config();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function generateBlogJSON({ title, keyword, link }) {
+export async function generateBlogJSON({ title, keyword, link, extraPrompt = '' }) {
   const prompt = `
 Generate a JSON blog post with the following structure:
 
@@ -24,7 +24,7 @@ Generate a JSON blog post with the following structure:
 Rules:
 - If no title is provided, generate a compelling, SEO-friendly blog title based on the "${keyword}".
 - Use the title: "${title}"
-- Use the keyword: "${keyword}" at least 5 times throughout the post.
+${extraPrompt}
 - Replace every full occurrence of "${keyword}" with this exact HTML anchor tag:
   <a href="${link}" target="_blank" rel="noopener noreferrer">${keyword}</a>
 - Ensure at least one hyperlink appears in each paragraph where natural.

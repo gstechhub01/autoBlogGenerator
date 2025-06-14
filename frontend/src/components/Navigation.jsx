@@ -5,6 +5,7 @@ const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/posts', label: 'Published Posts' },
   { to: '/scheduled', label: 'Scheduled Posts' },
+  { to: '/keywords', label: 'Keywords' }, // New link
 ];
 
 const Navigation = () => {

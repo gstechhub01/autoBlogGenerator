@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import BlogForm from './BlogForm';
 import SiteConfigModal from './SiteConfigModal';
 import Navigation from './Navigation';
+import SaveKeywordsModal from './SaveKeywordsModal';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const LandingPage = () => {
   const [siteConfigs, setSiteConfigs] = useState([]);
   const [showSiteConfigModal, setShowSiteConfigModal] = useState(false);
+  const [showSaveKeywordsModal, setShowSaveKeywordsModal] = useState(false);
   const [selectedSites, setSelectedSites] = useState([]);
 
   const fetchSiteConfigs = async () => {
@@ -46,9 +48,11 @@ const LandingPage = () => {
 
   return (
     <div className="container landing-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <h1 className="text-4xl md:text-5xl font-extrabold text-gray-800 drop-shadow-sm mb-2 mt-6 text-center w-full">
-        Blog Generator Dashboard
-      </h1>
+      <div className="flex items-center justify-between w-full mt-6 mb-2">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-800 drop-shadow-sm text-center w-full">
+          Blog Generator Dashboard
+        </h1>
+      </div>
       <Navigation />
       <main className="flex flex-col md:flex-row gap-8 w-full justify-center items-start mt-2">
         <section className="hidden md:block md:w-1/4 lg:w-1/5 card bg-white border-blue-100 shadow-sm opacity-90 self-stretch">
@@ -78,38 +82,23 @@ const LandingPage = () => {
             Manage Sites
           </button>
         </section>
+        <section className="hidden md:block md:w-1/4 lg:w-1/5 card bg-white border-blue-100 shadow-sm opacity-90 self-stretch">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-blue-700">Save Keyword</h2>
+            <button
+              onClick={() => setShowSaveKeywordsModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium shadow transition"
+            > 
+              Save Keywords
+            </button>
+          </div>
+          </section>  
+
         <section className="flex-1 max-w-2xl mx-auto w-full">
           <div className="card bg-white border-blue-100 shadow-md p-6">
             <h2 className="text-xl font-bold text-blue-700 mb-4 text-center">Create New Blog Post</h2>
             <BlogForm selectedSites={selectedSites.map(i => siteConfigs[i] || {})} />
           </div>
-          {/* <div className="block md:hidden mt-8 card bg-white border-blue-100 shadow-sm opacity-90">
-            <h2 className="text-lg font-semibold text-blue-700 mb-3">Configured Sites</h2>
-            {siteConfigs.length === 0 ? (
-              <p className="text-gray-400 italic">No site configurations found.</p>
-            ) : (
-              <ul className="space-y-2">
-                {siteConfigs.map((config, index) => (
-                  <li key={index} className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                    <input
-                      type="checkbox"
-                      checked={selectedSites.includes(index)}
-                      onChange={() => handleSiteSelection(index)}
-                      className="form-checkbox h-4 w-4 text-blue-600"
-                    />
-                    <span className="text-blue-800 text-sm font-medium break-all">{config.url}</span>
-                    <span className="text-xs text-gray-500 ml-2">({config.username})</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button
-              onClick={() => setShowSiteConfigModal(true)}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md font-medium shadow transition mt-4 w-full"
-            >
-              Manage Sites
-            </button>
-          </div> */}
         </section>
       </main>
       {showSiteConfigModal && (
@@ -117,6 +106,14 @@ const LandingPage = () => {
           isOpen={showSiteConfigModal}
           onClose={() => setShowSiteConfigModal(false)}
           onSave={fetchSiteConfigs}
+          apiBase={API_BASE}
+        />
+      )}
+      {showSaveKeywordsModal && (
+        <SaveKeywordsModal
+          isOpen={showSaveKeywordsModal}
+          onClose={() => setShowSaveKeywordsModal(false)}
+          selectedSite={siteConfigs[selectedSites[0]]}
           apiBase={API_BASE}
         />
       )}

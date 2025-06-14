@@ -4,6 +4,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { scrapeWithPuppeteer } from '../../models/scrapperBot.js';
 import { generateBlogJSON } from '../../models/openai-content-mo-four.js';
+import { bulkSaveKeywords, markKeywordPublished, getUnpublishedKeywords } from '../database.js';
+import express from 'express';
+
+const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,14 +68,26 @@ function findOrCreateConfig(configs, reqBody, matchedSites) {
 
 // Main article processing function
 async function processArticle(config, i, sites) {
-  const keywordsPerArticle = config.keywordsPerArticle || 1;
-  const keywordStart = (i * keywordsPerArticle) % config.keywords.length;
-  const selectedKeywords = config.keywords.slice(keywordStart, keywordStart + keywordsPerArticle);
-  // If not enough keywords at the end, wrap around
-  while (selectedKeywords.length < keywordsPerArticle) {
-    selectedKeywords.push(...config.keywords.slice(0, keywordsPerArticle - selectedKeywords.length));
-  }
-  const keyword = selectedKeywords.join(', ');
+  // Fetch up to 5 unpublished keywords for the site
+  let selectedKeywords = [];
+  let publishingKeyword = '';
+  let site = sites[0]?.url || '';
+  await new Promise((resolve) => {
+    getUnpublishedKeywords(site, 5, (err, rows) => {
+      if (!err && rows && rows.length > 0) {
+        selectedKeywords = rows.map(r => r.keyword);
+        publishingKeyword = selectedKeywords[0];
+      } else {
+        // fallback to config.keywords
+        selectedKeywords = config.keywords.slice(0, 5);
+        publishingKeyword = selectedKeywords[0];
+      }
+      resolve();
+    });
+  });
+
+  const keywordLinks = selectedKeywords.slice(0, 5);
+  const keyword = publishingKeyword;
   const link = config.links[i % config.links.length];
   const topic = config.topics && config.topics.length > 0 ? config.topics[i % config.topics.length] : keyword;
   const title = config.autoTitle ? null : topic;
@@ -112,14 +128,16 @@ async function processArticle(config, i, sites) {
       conclusion: scraped.qa && scraped.qa.length > 0 ? replaceKeywordWithAnchor(scraped.qa[scraped.qa.length - 1].answer) : ''
     };
   } else if (config.contentSource === 'openai') {
-    // Use OpenAI to generate blog JSON
-    console.log(`[OpenAI] Generating article for keywords: ${keyword}`);
-    blogJSON = await generateBlogJSON({ title: title || undefined, keyword, link });
-    // Optionally, you can post-process blogJSON to match the same structure as above if needed
+    // Pass publishing and in-article keyword/link rules to OpenAI
+    const openAIPromptRules = `\nRules:\n- Use the publishing keyword: \"${keyword}\" for the main anchor link.\n- Use up to 5 in-article keywords: ${keywordLinks.join(', ')} as context/SEO, but only the publishing keyword should be hyperlinked.\n- Do not exceed 5 keyword links in the article.\n- Each keyword should appear naturally.\n- Follow all other formatting rules as before.`;
+    blogJSON = await generateBlogJSON({ title: title || undefined, keyword, link, extraPrompt: openAIPromptRules });
     blogJSON.targetKeyword = keyword;
     blogJSON.targetLink = link;
     blogJSON.tags = config.tags || [];
   }
+
+  // Mark publishing keyword as published
+  markKeywordPublished(keyword, site);
 
   if (!blogJSON) {
     blogJSON = {
@@ -230,3 +248,52 @@ export async function generateAndPublishFromConfig(req, res) {
     res.status(500).json({ success: false, error: err.message });
   }
 }
+
+// Bulk save keywords API
+router.post('/bulk-save-keywords', async (req, res) => {
+  try {
+    const { keywords, site, scheduledTime } = req.body;
+    if (!Array.isArray(keywords)) {
+      return res.status(400).json({ success: false, error: 'Missing keywords' });
+    }
+    // If site is not provided, use a default value or null
+    bulkSaveKeywords(keywords, site || '', scheduledTime || null);
+    res.status(200).json({ success: true, message: 'Keywords saved.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API to get count of unpublished keywords for a site
+router.get('/unpublished-keywords-count', async (req, res) => {
+  const site = req.query.site;
+  if (!site) return res.status(400).json({ success: false, error: 'Missing site' });
+  getUnpublishedKeywords(site, 10000, (err, rows) => {
+    if (err) return res.status(500).json({ success: false, error: err.message });
+    res.status(200).json({ success: true, count: rows ? rows.length : 0 });
+  });
+});
+
+// API to get all saved keywords
+router.get('/all-keywords', async (req, res) => {
+  try {
+    getUnpublishedKeywords(null, 10000, (err, rows) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      // If site is null, fetch all keywords
+      if (!rows || rows.length === 0) {
+        // fallback: fetch all keywords from DB
+        const db = require('../database.js').db;
+        db.all('SELECT * FROM keywords', [], (err2, allRows) => {
+          if (err2) return res.status(500).json({ success: false, error: err2.message });
+          res.status(200).json({ success: true, keywords: allRows });
+        });
+      } else {
+        res.status(200).json({ success: true, keywords: rows });
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+export default router;
