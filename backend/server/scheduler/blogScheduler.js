@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { generateAndPublishFromConfig } from '../controllers/blogGeneratorController.js';
 import { PrismaClient } from '@prisma/client';
+import { getUnpublishedKeywords, markKeywordPublishedByKeywordAndSite } from '../database.js';
 
 const prisma = new PrismaClient();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,6 +25,10 @@ export function startBlogScheduler() {
         console.log(`🔍 Checking config: ${configId}`);
         if (config.hasRun) {
           console.log(`⏭️ Skipping ${configId}: already run`);
+          continue;
+        }
+        if (config.status === 'running') {
+          console.log(`⏳ Skipping ${configId}: already running`);
           continue;
         }
         // Interval-based scheduling logic
@@ -55,15 +60,18 @@ export function startBlogScheduler() {
           }
         }
         // Only run if there are unpublished keywords
-        const unpublishedCount = await prisma.keyword.count({ where: { configId: config.id, published: false } });
-        if (unpublishedCount === 0) {
+        const unpublishedKeywords = await getUnpublishedKeywords({ configId: config.id, limit: 1 });
+        if (unpublishedKeywords.length === 0) {
           if (!config.hasRun) {
             await prisma.blogConfig.update({ where: { id: config.id }, data: { hasRun: true } });
           }
-          continue; // Skip this config, nothing to publish
+          continue;
         }
         if (shouldRun) {
+          // Set status to running and startedAt
+          await prisma.blogConfig.update({ where: { id: config.id }, data: { status: 'running', startedAt: new Date() } });
           console.log(`⏰ Running blog for config: ${configId}`);
+          let processingLog = config.processingLog || [];
           try {
             // Only publish one article per interval
             const articleData = { ...config, articleCount: 1 };
@@ -71,6 +79,7 @@ export function startBlogScheduler() {
               { body: { ...articleData, contentSource: config.contentSource, engine: config.engine } },
               {
                 json: (data) => {
+                  processingLog.push({ timestamp: new Date().toISOString(), event: 'publish', data });
                   if (data && (data.success === false)) {
                     console.error(`❌ Error for ${configId}:`, data);
                   } else {
@@ -79,6 +88,7 @@ export function startBlogScheduler() {
                 },
                 status: (code) => ({
                   json: (payload) => {
+                    processingLog.push({ timestamp: new Date().toISOString(), event: 'status', code, payload });
                     if (code >= 400) {
                       console.error(`❌ Error ${code} for ${configId}:`, payload);
                     } else {
@@ -93,9 +103,13 @@ export function startBlogScheduler() {
             // Check if all keywords are published
             const unpublishedCount = await prisma.keyword.count({ where: { configId: config.id, published: false } });
             if (unpublishedCount === 0) {
-              await prisma.blogConfig.update({ where: { id: config.id }, data: { hasRun: true } });
+              await prisma.blogConfig.update({ where: { id: config.id }, data: { hasRun: true, status: 'finished', finishedAt: new Date(), processingLog } });
+            } else {
+              await prisma.blogConfig.update({ where: { id: config.id }, data: { status: 'pending', processingLog } });
             }
           } catch (err) {
+            processingLog.push({ timestamp: new Date().toISOString(), event: 'error', error: err.message });
+            await prisma.blogConfig.update({ where: { id: config.id }, data: { status: 'error', finishedAt: new Date(), processingLog } });
             console.error(`❌ Failed to generate for ${configId}:`, err.message);
           }
         }

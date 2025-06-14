@@ -4,6 +4,9 @@ import path from 'path';
 import { generateBlogJSON } from '../../models/openai-content-mo-four.js';
 import { convertBlogJSONToMarkdown } from '../../util/markdowncoonverter.js';
 import { publishToWordPress } from '../../publisher/wp-publisher.js';
+import express from 'express';
+
+const router = express.Router();
 
 const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -61,3 +64,31 @@ export async function generateAndPublishFromConfig(req, res) {
     res.status(500).json({ success: false, error: err.message });
   }
 }
+
+// GET /api/published-posts (get all published articles)
+router.get('/published-posts', async (req, res) => {
+  try {
+    // Fetch all articles (optionally filter by publishedAt or other logic if needed)
+    const articles = await prisma.article.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, email: true, name: true } }
+      }
+    });
+    // Format for frontend
+    const posts = articles.map(article => ({
+      id: article.id,
+      title: article.title,
+      body: article.body,
+      image: article.image,
+      createdAt: article.createdAt,
+      updatedAt: article.updatedAt,
+      user: article.user,
+    }));
+    res.status(200).json({ success: true, posts });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+export default router;

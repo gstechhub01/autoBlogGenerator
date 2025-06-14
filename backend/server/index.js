@@ -8,6 +8,7 @@ import blogGeneratorController from './controllers/blogGeneratorController.js';
 import { startBlogScheduler } from './scheduler/blogScheduler.js';
 import { generateAndPublishFromConfig } from './controllers/blogGeneratorController.js';
 import authRoutes, { requireAuth } from './routes/auth.js';
+import blogRoutes from './routes/blogController.js';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ startBlogScheduler(app);
 app.use('/api', configRoutes);
 app.use('/api', blogGeneratorController);
 app.use('/api/auth', authRoutes);
+app.use('/api', blogRoutes);
 
 // Direct POST route to generate and publish
 app.post('/api/generate-and-publish', generateAndPublishFromConfig);

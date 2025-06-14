@@ -24,23 +24,20 @@ async function resolveSites(siteIdentifiers) {
 
 // Main article processing function
 async function processArticle(config, i, sites) {
-  // Fetch up to 5 unpublished keywords for the site
+  // Fetch up to N unpublished keywords for the site/config
   let selectedKeywords = [];
   let publishingKeyword = '';
   let site = sites[0]?.url || '';
-  await new Promise((resolve) => {
-    getUnpublishedKeywords(site, 5, (err, rows) => {
-      if (!err && rows && rows.length > 0) {
-        selectedKeywords = rows.map(r => r.keyword);
-        publishingKeyword = selectedKeywords[0];
-      } else {
-        // fallback to config.keywords
-        selectedKeywords = config.keywords.slice(0, 5);
-        publishingKeyword = selectedKeywords[0];
-      }
-      resolve();
-    });
-  });
+  // Use new DB function for keywords
+  const configId = config.id || config.configId;
+  const keywordsRows = await getUnpublishedKeywords({ siteUrl: site, configId, limit: 5 });
+  if (keywordsRows && keywordsRows.length > 0) {
+    selectedKeywords = keywordsRows.map(r => r.keyword);
+    publishingKeyword = selectedKeywords[0];
+  } else {
+    // No unpublished keywords in DB, abort
+    throw new Error('No unpublished keywords available in database for this site/config.');
+  }
 
   const keywordLinks = selectedKeywords.slice(0, 5);
   const keyword = publishingKeyword;
@@ -92,8 +89,8 @@ async function processArticle(config, i, sites) {
     blogJSON.tags = config.tags || [];
   }
 
-  // Mark publishing keyword as published
-  markKeywordPublished(keyword, site);
+  // Mark publishing keyword as published in DB
+  await markKeywordPublishedByKeywordAndSite(keyword, site);
 
   if (!blogJSON) {
     blogJSON = {
@@ -159,15 +156,13 @@ async function processArticle(config, i, sites) {
 
 export async function generateAndPublishFromConfig(req, res) {
   try {
-    // Load config and sites from Prisma
+    // Loosen config matching: match by userId and at least one site/topic/link/tag overlap
     const reqBody = req.body;
     let config = await prisma.blogConfig.findFirst({
       where: {
-        sites: JSON.stringify(reqBody.sites || []),
-        topics: JSON.stringify(reqBody.topics || []),
-        links: JSON.stringify(reqBody.links || []),
-        tags: JSON.stringify(reqBody.tags || []),
+        userId: reqBody.userId || 1,
       },
+      orderBy: { createdAt: 'desc' },
     });
     if (!config) {
       config = await prisma.blogConfig.create({

@@ -42,6 +42,10 @@ model BlogConfig {
   publishIntervalMinutes Int? // Interval in minutes between publishes
   lastPublishedAt      DateTime?
   exhaustAllKeywords   Boolean   @default(true) // <-- Added for backend logic
+  status               String?   @default("pending")
+  processingLog        Json?
+  startedAt            DateTime?
+  finishedAt           DateTime?
 }
 
 model SiteConfig {
