@@ -1,8 +1,5 @@
 import express from 'express';
 import prisma from '../database.js';
-import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
-import path from 'path';
 
 const router = express.Router();
 
@@ -12,18 +9,27 @@ router.post('/save-config', async (req, res) => {
     const config = req.body;
     const userId = req.user?.userId || config.userId || 1; // Use userId from token if available
     // Save config to BlogConfig table
+    const exhaustAllKeywords = config.exhaustAllKeywords !== undefined ? config.exhaustAllKeywords : true;
+    let publishIntervalMinutes = null;
+    let scheduleTime = null;
+    if (exhaustAllKeywords) {
+      publishIntervalMinutes = config.publishIntervalMinutes || config.publishInterval || null;
+    } else {
+      scheduleTime = config.scheduleTime || null;
+    }
     const newConfig = await prisma.blogConfig.create({
       data: {
         userId,
         sites: JSON.stringify(config.sites || []),
-        keywords: JSON.stringify(config.topics || []),
         links: JSON.stringify(config.links || []),
         tags: JSON.stringify(config.tags || []),
         topics: JSON.stringify(config.topics || []),
         autoTitle: config.autoTitle ?? true,
         articleCount: config.articleCount || 1,
         keywordsPerArticle: config.keywordsPerArticle || 1,
-        publishIntervalMinutes: config.publishIntervalMinutes || null, // Allow setting interval from frontend
+        publishIntervalMinutes,
+        scheduleTime,
+        hasRun: false, // Ensure hasRun is false on create
       },
     });
     res.status(200).json({ success: true, message: 'Blog config saved.', config: newConfig });

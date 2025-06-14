@@ -24,23 +24,24 @@ model User {
 }
 
 model BlogConfig {
-  id                 Int       @id @default(autoincrement())
-  userId             Int
-  user               User      @relation(fields: [userId], references: [id])
-  sites              String // JSON stringified array or create a related SiteConfig table
-  links              String // JSON stringified array
-  tags               String // JSON stringified array
-  topics             String // JSON stringified array
-  autoTitle          Boolean
-  articleCount       Int
-  keywordsPerArticle Int? // Number of keywords per article
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  keywords           Keyword[]
-  hasRun             Boolean   @default(false)
-  scheduleTime       DateTime?
+  id                   Int       @id @default(autoincrement())
+  userId               Int
+  user                 User      @relation(fields: [userId], references: [id])
+  sites                Json
+  links                Json
+  tags                 Json
+  topics               Json
+  autoTitle            Boolean
+  articleCount         Int
+  keywordsPerArticle   Int? // Number of keywords per article
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  keywords             Keyword[]
+  hasRun               Boolean   @default(false)
+  scheduleTime         DateTime?
   publishIntervalMinutes Int? // Interval in minutes between publishes
-  lastPublishedAt    DateTime?
+  lastPublishedAt      DateTime?
+  exhaustAllKeywords   Boolean   @default(true) // <-- Added for backend logic
 }
 
 model SiteConfig {
