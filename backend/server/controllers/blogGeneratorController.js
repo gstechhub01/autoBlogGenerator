@@ -221,7 +221,7 @@ router.post('/bulk-save-keywords', async (req, res) => {
     }
     // Save keywords using Prisma
     const created = await Promise.all(keywords.map(keyword =>
-      prisma.keyword.create({ data: { keyword, published: false, publishedOn: [], userId, configId: null, createdAt: new Date(), updatedAt: new Date() } })
+      prisma.keyword.create({ data: { keyword, published: false, publishedOn: [], userId, configId: null, createdAt: new Date(), updatedAt: new Date(), scheduledTime: scheduledTime ? new Date(scheduledTime) : null } })
     ));
     res.status(200).json({ success: true, message: 'Keywords saved.', created });
   } catch (err) {

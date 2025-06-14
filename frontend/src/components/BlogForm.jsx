@@ -18,6 +18,8 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   const [engine, setEngine] = useState(initialEngine);
   const [unpublishedCount, setUnpublishedCount] = useState(0);
   const [keywordsPerArticle, setKeywordsPerArticle] = useState(1);
+  const [publishInterval, setPublishInterval] = useState(60); // default 60 minutes
+  const [exhaustAllKeywords, setExhaustAllKeywords] = useState(true);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -57,6 +59,8 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
         contentSource,
         engine: contentSource === 'scrapper' ? engine : undefined,
         keywordsPerArticle: keywordsPerArticle || 1,
+        publishIntervalMinutes: Number(publishInterval) || 60,
+        exhaustAllKeywords,
       };
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE}/save-config`, {
@@ -171,6 +175,19 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
           <p className="text-xs text-gray-500 mt-1">Number of keywords to use per article (max: {unpublishedCount || 1})</p>
         </div>
 
+        <div>
+          <label>Publish Interval (minutes)</label>
+          <input
+            type="number"
+            value={publishInterval}
+            onChange={e => setPublishInterval(Number(e.target.value))}
+            min="1"
+            required
+            className="w-32"
+          />
+          <p className="text-xs text-gray-500 mt-1">Set how often to publish a new article (in minutes)</p>
+        </div>
+
         <div className="mb-4">
           <label className="block font-medium mb-1">Content Source</label>
           <select
@@ -197,6 +214,19 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
             </select>
           </div>
         )}
+
+        <div>
+          <label className="inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={exhaustAllKeywords}
+              onChange={e => setExhaustAllKeywords(e.target.checked)}
+              className="form-checkbox h-4 w-4 text-blue-600"
+            />
+            <span className="ml-2 text-gray-700">Publish all keywords (exhaust all before stopping)</span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1">Uncheck to publish only one article per schedule, or for one-off jobs.</p>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}

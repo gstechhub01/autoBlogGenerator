@@ -23,6 +23,7 @@ router.post('/save-config', async (req, res) => {
         autoTitle: config.autoTitle ?? true,
         articleCount: config.articleCount || 1,
         keywordsPerArticle: config.keywordsPerArticle || 1,
+        publishIntervalMinutes: config.publishIntervalMinutes || null, // Allow setting interval from frontend
       },
     });
     res.status(200).json({ success: true, message: 'Blog config saved.', config: newConfig });

@@ -39,6 +39,8 @@ model BlogConfig {
   keywords           Keyword[]
   hasRun             Boolean   @default(false)
   scheduleTime       DateTime?
+  publishIntervalMinutes Int? // Interval in minutes between publishes
+  lastPublishedAt    DateTime?
 }
 
 model SiteConfig {
@@ -78,4 +80,5 @@ model Keyword {
   config      BlogConfig? @relation(fields: [configId], references: [id])
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  scheduledTime DateTime? // Optional: when this keyword should be published
 }
