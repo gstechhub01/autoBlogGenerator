@@ -26,7 +26,10 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
     const fetchUnpublishedCount = async () => {
       if (selectedSites.length > 0) {
         try {
-          const res = await fetch(`${API_BASE}/unpublished-keywords-count?site=${encodeURIComponent(selectedSites[0].url)}`);
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${API_BASE}/unpublished-keywords-count?site=${encodeURIComponent(selectedSites[0].url)}`,
+            { headers: token ? { 'Authorization': `Bearer ${token}` } : {} }
+          );
           const data = await res.json();
           if (data.success) setUnpublishedCount(data.count);
         } catch {}
@@ -53,13 +56,14 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
         articleCount: Number(articleCount) || 1,
         contentSource,
         engine: contentSource === 'scrapper' ? engine : undefined,
+        keywordsPerArticle: keywordsPerArticle || 1,
       };
-
-      // Save config only, do not trigger publish directly
+      const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE}/save-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify(payload),
       });

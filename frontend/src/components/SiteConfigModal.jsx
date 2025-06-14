@@ -16,7 +16,10 @@ const SiteConfigModal = ({ isOpen, onClose, onSave, apiBase }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/site-configs`);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${apiBase}/site-configs`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await res.json();
       if (data.success) {
         setSites(data.siteConfigs);
@@ -48,19 +51,22 @@ const SiteConfigModal = ({ isOpen, onClose, onSave, apiBase }) => {
     setError(null);
     setSuccess(null);
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch(`${apiBase}/save-site-configs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ sites }),
       });
       const data = await res.json();
       if (!data.success) {
         throw new Error(data.error || 'Failed to save');
       }
-      setSuccess('Saved!');
-      if (onSave) {
-        onSave();
-      }
+      setSuccess('Sites saved successfully!');
+      if (onSave) onSave();
+      onClose();
     } catch (err) {
       setError(err.message);
     } finally {

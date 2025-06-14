@@ -9,7 +9,10 @@ const PostsPage = () => {
   useEffect(() => {
     const fetchPublishedPosts = async () => {
       try {
-        const res = await fetch(`${API_BASE}/published-posts`);
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/published-posts`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         const data = await res.json();
         if (data.success) setPublishedPosts(data.posts);
       } catch (err) {
@@ -24,9 +27,9 @@ const PostsPage = () => {
       <Navigation />
       <h2>Published Blog Posts</h2>
       <div className="card">
-        {publishedPosts.length === 0 ? (
+        {publishedPosts && publishedPosts.length === 0 ? (
           <p>No published posts found.</p>
-        ) : (
+        ) : publishedPosts && publishedPosts.length > 0 ? (
           <ul>
             {publishedPosts.map((post, idx) => (
               <li key={idx}>
@@ -35,6 +38,8 @@ const PostsPage = () => {
               </li>
             ))}
           </ul>
+        ) : (
+          <p className="text-gray-400 italic">No data available.</p>
         )}
       </div>
     </div>

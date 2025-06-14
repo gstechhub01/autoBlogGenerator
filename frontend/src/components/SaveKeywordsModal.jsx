@@ -20,11 +20,29 @@ const SaveKeywordsModal = ({ isOpen, onClose, selectedSite, apiBase }) => {
         setLoading(false);
         return;
       }
+      const token = localStorage.getItem('token');
+      // Get userId from token (decode JWT)
+      let userId = null;
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          userId = payload.userId;
+        } catch {}
+      }
+      if (!userId) {
+        setError('User not authenticated. Please log in again.');
+        setLoading(false);
+        return;
+      }
       const response = await fetch(`${apiBase}/bulk-save-keywords`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          keywords: keywordsArr
+          keywords: keywordsArr,
+          userId
         })
       });
       let data;

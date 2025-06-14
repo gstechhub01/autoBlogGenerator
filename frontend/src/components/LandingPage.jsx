@@ -14,7 +14,10 @@ const LandingPage = () => {
 
   const fetchSiteConfigs = async () => {
     try {
-      const response = await fetch(`${API_BASE}/site-configs`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/site-configs`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await response.json();
       let sitesArray = [];
       if (Array.isArray(data.siteConfigs)) {

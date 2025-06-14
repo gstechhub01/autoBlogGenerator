@@ -212,13 +212,16 @@ export async function generateAndPublishFromConfig(req, res) {
 // Bulk save keywords API
 router.post('/bulk-save-keywords', async (req, res) => {
   try {
-    const { keywords, site, scheduledTime } = req.body;
+    const { keywords, site, scheduledTime, userId } = req.body;
     if (!Array.isArray(keywords)) {
       return res.status(400).json({ success: false, error: 'Missing keywords' });
     }
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'Missing userId' });
+    }
     // Save keywords using Prisma
     const created = await Promise.all(keywords.map(keyword =>
-      prisma.keyword.create({ data: { keyword, site: site || '', scheduledTime: scheduledTime || null } })
+      prisma.keyword.create({ data: { keyword, published: false, publishedOn: [], userId, configId: null, createdAt: new Date(), updatedAt: new Date() } })
     ));
     res.status(200).json({ success: true, message: 'Keywords saved.', created });
   } catch (err) {
@@ -228,10 +231,10 @@ router.post('/bulk-save-keywords', async (req, res) => {
 
 // API to get count of unpublished keywords for a site
 router.get('/unpublished-keywords-count', async (req, res) => {
-  const site = req.query.site;
-  if (!site) return res.status(400).json({ success: false, error: 'Missing site' });
+  // const site = req.query.site; // Not used, as 'site' is not a field in the model
   try {
-    const count = await prisma.keyword.count({ where: { site, published: false } });
+    // Remove site filter, count only unpublished keywords
+    const count = await prisma.keyword.count({ where: { published: false } });
     res.status(200).json({ success: true, count });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

@@ -9,7 +9,10 @@ const ScheduledPage = () => {
   useEffect(() => {
     const fetchScheduledConfigs = async () => {
       try {
-        const res = await fetch(`${API_BASE}/configs`);
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/configs`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         const data = await res.json();
         if (data.success) {
           // Filter configs that are scheduled but not yet run
@@ -27,9 +30,9 @@ const ScheduledPage = () => {
       <Navigation />
       <h2>Scheduled Blog Posts</h2>
       <div className="card">
-        {scheduledConfigs.length === 0 ? (
+        {scheduledConfigs && scheduledConfigs.length === 0 ? (
           <p>No scheduled posts found.</p>
-        ) : (
+        ) : scheduledConfigs && scheduledConfigs.length > 0 ? (
           <ul>
             {scheduledConfigs.map((cfg, idx) => (
               <li key={cfg.id || idx}>
@@ -37,6 +40,8 @@ const ScheduledPage = () => {
               </li>
             ))}
           </ul>
+        ) : (
+          <p className="text-gray-400 italic">No data available.</p>
         )}
       </div>
     </div>
