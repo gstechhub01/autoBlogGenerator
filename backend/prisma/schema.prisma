@@ -37,6 +37,8 @@ model BlogConfig {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   keywords           Keyword[]
+  hasRun             Boolean   @default(false)
+  scheduleTime       DateTime?
 }
 
 model SiteConfig {

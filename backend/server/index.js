@@ -7,6 +7,7 @@ import configRoutes from './routes/configController.js';
 import blogGeneratorController from './controllers/blogGeneratorController.js';
 import { startBlogScheduler } from './scheduler/blogScheduler.js';
 import { generateAndPublishFromConfig } from './controllers/blogGeneratorController.js';
+import authRoutes, { requireAuth } from './routes/auth.js';
 
 dotenv.config();
 
@@ -21,9 +22,16 @@ startBlogScheduler(app);
 // Route for saving config
 app.use('/api', configRoutes);
 app.use('/api', blogGeneratorController);
+app.use('/api/auth', authRoutes);
 
 // Direct POST route to generate and publish
 app.post('/api/generate-and-publish', generateAndPublishFromConfig);
+
+// Protect all /api routes except /api/auth/*
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth/')) return next();
+  return requireAuth(req, res, next);
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
