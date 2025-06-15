@@ -81,6 +81,8 @@ router.get('/published-posts', async (req, res) => {
       title: article.title,
       body: article.body,
       image: article.image,
+      siteUrl: article.siteUrl,
+      postUrl: article.publishedUrl,
       createdAt: article.createdAt,
       updatedAt: article.updatedAt,
       user: article.user,

@@ -114,6 +114,7 @@ export async function generateAndPublishService(resources) {
         title: blogJSON.title,
         body: blogJSON.sections && blogJSON.sections.length > 0 ? blogJSON.sections.map(s => `<h2>${s.heading}</h2><p>${s.body}</p>`).join('') + `<h2>Conclusion</h2><p>${blogJSON.conclusion}</p>` : '',
         image: blogJSON.sections && blogJSON.sections[0]?.image ? blogJSON.sections[0].image : null,
+        siteUrl: sites && sites.length > 0 ? sites[0].url : null // Set initial siteUrl for the first site
       }
     });
   } catch (err) {
@@ -155,6 +156,14 @@ export async function generateAndPublishService(resources) {
       };
       const wpRes = await publishToWordPress(publishPayload, site);
       const url = wpRes.link || null;
+      // Update the article with siteUrl and publishedUrl
+      await prisma.article.update({
+        where: { id: dbArticle.id },
+        data: {
+          siteUrl: site.url,
+          publishedUrl: url
+        }
+      });
       articles.push({
         title: dbArticle.title,
         keyword,

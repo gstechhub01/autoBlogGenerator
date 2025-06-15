@@ -69,6 +69,8 @@ model Article {
   title     String
   body      String
   image     String?
+  siteUrl   String   // New: The site where the article is published
+  publishedUrl String? // New: The URL of the published blog post
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

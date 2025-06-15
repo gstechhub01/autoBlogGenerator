@@ -29,6 +29,8 @@
     "puppeteer-extra-plugin-recaptcha": "^3.6.8",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "sqlite3": "^5.1.7",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
     "uuid": "^11.1.0"
   }
 }

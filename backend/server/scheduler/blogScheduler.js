@@ -99,16 +99,33 @@ export function startBlogScheduler() {
         }
         // Allocate keywords for this run (from global pool)
         let keywordsToPublish = [];
+        let keywordsToMarkPublished = [];
         if (exhaustAllKeywords) {
           // Publish one or more keywords per interval (respect articleCount/keywordsPerArticle if set)
           const count = config.articleCount || 1;
+          // Only select keywords that are not published and not in use as in-article links
           keywordsToPublish = unpublishedKeywords.slice(0, count).map(k => k.keyword);
-          console.log(`  - Allocated keywords for this run (global):`, keywordsToPublish);
+          // Mark all selected keywords as to be published
+          keywordsToMarkPublished = [...keywordsToPublish];
         } else {
           // One-off: just pick the first unpublished keyword
           keywordsToPublish = [unpublishedKeywords[0].keyword];
-          console.log(`  - One-off job, keyword to publish (global):`, keywordsToPublish);
+          keywordsToMarkPublished = [unpublishedKeywords[0].keyword];
         }
+        // Also mark in-article keywords as published to prevent reuse
+        let inArticleKeywords = [];
+        if (config.keywordsPerArticle && keywordsToPublish.length > 0) {
+          // Pick additional keywords for in-article links, not including the main publishing keywords
+          inArticleKeywords = unpublishedKeywords
+            .filter(k => !keywordsToPublish.includes(k.keyword))
+            .slice(0, config.keywordsPerArticle * keywordsToPublish.length)
+            .map(k => k.keyword);
+          keywordsToMarkPublished.push(...inArticleKeywords);
+        }
+        // Remove duplicates
+        keywordsToMarkPublished = [...new Set(keywordsToMarkPublished)];
+        console.log(`  - Allocated keywords for this run (global):`, keywordsToPublish);
+        console.log(`  - Will mark as published:`, keywordsToMarkPublished);
         if (shouldRun) {
           // Set status to running and startedAt
           await prisma.blogConfig.update({ where: { id: config.id }, data: { status: 'running', startedAt: new Date() } });
@@ -128,14 +145,22 @@ export function startBlogScheduler() {
             let sites = Array.isArray(sanitizedConfig.sites) ? sanitizedConfig.sites : (sanitizedConfig.sites ? [sanitizedConfig.sites] : []);
             sanitizedConfig.sites = sites;
             // Loop over each keyword to publish
-            for (const keyword of keywordsToPublish) {
+            for (let i = 0; i < keywordsToPublish.length; i++) {
+              const keyword = keywordsToPublish[i];
+              // Rotate site for each article (round-robin)
+              const site = sites.length > 0 ? sites[i % sites.length] : null;
+              if (!site) {
+                console.warn(`⚠️ No site available for publishing keyword: ${keyword}`);
+                continue;
+              }
               const payload = {
                 ...sanitizedConfig,
+                sites: [site], // Only one site per article/keyword
                 publishingKeyword: keyword,
-                inArticleKeywords: keywordsToPublish.filter(k => k !== keyword),
+                inArticleKeywords: inArticleKeywords.filter(k => k !== keyword),
                 // Optionally set link, topic, etc. if needed
               };
-              console.log(`  - Calling generateAndPublish for configId: ${configId} with publishingKeyword:`, keyword, 'and sites:', sites);
+              console.log(`  - Calling generateAndPublish for configId: ${configId} with publishingKeyword:`, keyword, 'and site:', site);
               await generateAndPublish(
                 { body: payload },
                 {
@@ -162,6 +187,11 @@ export function startBlogScheduler() {
                 }
               );
             }
+            // Mark all used keywords as published (main and in-article)
+            await prisma.keyword.updateMany({
+              where: { keyword: { in: keywordsToMarkPublished } },
+              data: { published: true, publishedAt: new Date() }
+            });
             // Update lastPublishedAt
             await prisma.blogConfig.update({ where: { id: config.id }, data: { lastPublishedAt: now } });
             // Check if all keywords are published
