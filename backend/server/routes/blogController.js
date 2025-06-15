@@ -12,7 +12,7 @@ const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
 
-export async function generateAndPublishFromConfig(req, res) {
+export async function generateAndPublish(req, res) {
   const configPath = path.join('config', 'blog-config.json');
 
   try {

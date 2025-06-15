@@ -6,7 +6,7 @@ import bodyParser from 'body-parser';
 import configRoutes from './routes/configController.js';
 import blogGeneratorController from './controllers/blogGeneratorController.js';
 import { startBlogScheduler } from './scheduler/blogScheduler.js';
-import { generateAndPublishFromConfig } from './controllers/blogGeneratorController.js';
+import { generateAndPublish } from './controllers/blogGeneratorController.js';
 import authRoutes, { requireAuth } from './routes/auth.js';
 import blogRoutes from './routes/blogController.js';
 
@@ -27,7 +27,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', blogRoutes);
 
 // Direct POST route to generate and publish
-app.post('/api/generate-and-publish', generateAndPublishFromConfig);
+app.post('/api/generate-and-publish', generateAndPublish);
 
 // Protect all /api routes except /api/auth/*
 app.use('/api', (req, res, next) => {

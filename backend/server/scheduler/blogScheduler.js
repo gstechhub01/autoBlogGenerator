@@ -1,7 +1,6 @@
 import cron from 'node-cron';
-import { generateAndPublishFromConfig } from '../controllers/blogGeneratorController.js';
+import { generateAndPublish } from '../controllers/blogGeneratorController.js';
 import { PrismaClient } from '@prisma/client';
-import { getUnpublishedKeywords, markKeywordPublishedByKeywordAndSite } from '../database.js';
 
 const prisma = new PrismaClient();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -35,8 +34,18 @@ export function startBlogScheduler() {
           continue;
         }
         if (config.status === 'running') {
-          console.log(`⏳ Skipping ${configId}: already running`);
-          continue;
+          // Auto-reset if stuck in running for too long
+          const interval = config.publishIntervalMinutes || 5; // fallback to 5 min if not set
+          const startedAt = config.startedAt ? new Date(config.startedAt) : null;
+          const maxStuckMs = interval * 2 * 60000; // 2x interval
+          if (startedAt && (now - startedAt > maxStuckMs)) {
+            // Reset status to pending
+            await prisma.blogConfig.update({ where: { id: config.id }, data: { status: 'pending', startedAt: null } });
+            console.warn(`⚠️ Config ${configId} was stuck in 'running' for too long. Auto-reset to 'pending'.`);
+          } else {
+            console.log(`⏳ Skipping ${configId}: already running`);
+            continue;
+          }
         }
         const interval = config.publishIntervalMinutes;
         const lastPublished = config.lastPublishedAt;
@@ -107,36 +116,52 @@ export function startBlogScheduler() {
           let processingLog = config.processingLog || [];
           try {
             // Only publish allocated keywords for this interval
-            const articleData = { ...config, articleCount: keywordsToPublish.length, topics: keywordsToPublish };
-            // Ensure sites is always an array
-            let sites = Array.isArray(config.sites) ? config.sites : (config.sites ? [config.sites] : []);
-            articleData.sites = sites;
-            console.log(`  - Calling generateAndPublishFromConfig for configId: ${configId} with topics:`, keywordsToPublish, 'and sites:', sites);
-            await generateAndPublishFromConfig(
-              { body: { ...articleData, contentSource: config.contentSource, engine: config.engine } },
-              {
-                json: (data) => {
-                  processingLog.push({ timestamp: new Date().toISOString(), event: 'publish', data });
-                  console.log(`  - generateAndPublishFromConfig result:`, data);
-                  if (data && (data.success === false)) {
-                    console.error(`❌ Error for ${configId}:`, data);
-                  } else {
-                    console.log(`✅ Success for ${configId}:`, data);
-                  }
-                },
-                status: (code) => ({
-                  json: (payload) => {
-                    processingLog.push({ timestamp: new Date().toISOString(), event: 'status', code, payload });
-                    console.log(`  - Status callback: code=${code}, payload=`, payload);
-                    if (code >= 400) {
-                      console.error(`❌ Error ${code} for ${configId}:`, payload);
+            // Sanitize config fields before passing to generateAndPublish
+            const sanitizedConfig = {
+              ...config,
+              sites: typeof config.sites === 'string' ? JSON.parse(config.sites) : config.sites,
+              links: typeof config.links === 'string' ? JSON.parse(config.links) : config.links,
+              tags: typeof config.tags === 'string' ? JSON.parse(config.tags) : config.tags,
+              topics: typeof config.topics === 'string' ? JSON.parse(config.topics) : config.topics,
+              autoTitle: config.autoTitle !== false, // default true
+            };
+            let sites = Array.isArray(sanitizedConfig.sites) ? sanitizedConfig.sites : (sanitizedConfig.sites ? [sanitizedConfig.sites] : []);
+            sanitizedConfig.sites = sites;
+            // Loop over each keyword to publish
+            for (const keyword of keywordsToPublish) {
+              const payload = {
+                ...sanitizedConfig,
+                publishingKeyword: keyword,
+                inArticleKeywords: keywordsToPublish.filter(k => k !== keyword),
+                // Optionally set link, topic, etc. if needed
+              };
+              console.log(`  - Calling generateAndPublish for configId: ${configId} with publishingKeyword:`, keyword, 'and sites:', sites);
+              await generateAndPublish(
+                { body: payload },
+                {
+                  json: (data) => {
+                    processingLog.push({ timestamp: new Date().toISOString(), event: 'publish', data });
+                    console.log(`  - generateAndPublish result:`, data);
+                    if (data && (data.success === false)) {
+                      console.error(`❌ Error for ${configId}:`, data);
                     } else {
-                      console.log(`ℹ️ Status ${code} for ${configId}:`, payload);
+                      console.log(`✅ Success for ${configId}:`, data);
                     }
                   },
-                }),
-              }
-            );
+                  status: (code) => ({
+                    json: (payload) => {
+                      processingLog.push({ timestamp: new Date().toISOString(), event: 'status', code, payload });
+                      console.log(`  - Status callback: code=${code}, payload=`, payload);
+                      if (code >= 400) {
+                        console.error(`❌ Error ${code} for ${configId}:`, payload);
+                      } else {
+                        console.log(`ℹ️ Status ${code} for ${configId}:`, payload);
+                      }
+                    },
+                  }),
+                }
+              );
+            }
             // Update lastPublishedAt
             await prisma.blogConfig.update({ where: { id: config.id }, data: { lastPublishedAt: now } });
             // Check if all keywords are published
