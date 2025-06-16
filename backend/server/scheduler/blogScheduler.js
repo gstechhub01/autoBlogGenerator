@@ -164,7 +164,8 @@ export function startBlogScheduler() {
             for (let i = 0; i < keywordsToPublish.length; i++) {
               const keyword = keywordsToPublish[i];
               // Round-robin site assignment
-              const site = siteCount > 0 ? sites[(startSiteIndex + i) % siteCount] : null;
+              const siteIndex = (startSiteIndex + i) % siteCount;
+              const site = siteCount > 0 ? sites[siteIndex] : null;
               if (!site) {
                 console.warn(`⚠️ No site available for publishing keyword: ${keyword}`);
                 continue;
@@ -176,7 +177,7 @@ export function startBlogScheduler() {
                 inArticleKeywords: inArticleKeywords.filter(k => k !== keyword),
                 contentSource: sanitizedConfig.contentSource,
                 engine: sanitizedConfig.engine,
-                // Optionally set link, topic, etc. if needed
+                blogConfigId: config.id // Pass for service to know which config
               };
               console.log(`  - Calling generateAndPublish for configId: ${configId} with publishingKeyword:`, keyword, 'and site:', site, '| contentSource:', payload.contentSource, '| engine:', payload.engine);
               // Log which engine is being used for this content
@@ -208,6 +209,8 @@ export function startBlogScheduler() {
               );
               // Mark this site as unavailable for next round
               await prisma.siteConfig.updateMany({ where: { url: site.url, username: site.username }, data: { publishingAvailable: false } });
+              // Update lastSiteIndex in BlogConfig for persistent round-robin
+              await prisma.blogConfig.update({ where: { id: config.id }, data: { lastSiteIndex: siteIndex } });
             }
             // Mark all used keywords as published (main and in-article)
             await prisma.keyword.updateMany({

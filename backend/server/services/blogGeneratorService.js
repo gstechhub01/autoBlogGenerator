@@ -128,36 +128,20 @@ export async function generateAndPublishService(resources) {
       if (dbSite && dbSite.password) {
         resolvedSites.push({ ...site, password: dbSite.password, publishingAvailable: dbSite.publishingAvailable });
       } else {
-        // Skip or throw if credentials incomplete
         throw new Error(`Missing password for site: ${site.url} (${site.username})`);
       }
     } else {
-      // Skip or throw if url/username missing
       throw new Error('Site config missing url or username');
     }
   }
-  // --- Begin round-robin site selection logic ---
-  // Fetch BlogConfig for this publish (assume resources.blogConfigId is provided)
-  let blogConfig = null;
-  if (resources.blogConfigId) {
-    blogConfig = await prisma.blogConfig.findUnique({ where: { id: resources.blogConfigId } });
-  }
-  // Only use sites with publishingAvailable !== false
-  const availableSites = resolvedSites.filter(s => s.publishingAvailable !== false);
-  if (availableSites.length === 0) {
-    // If all are unavailable, reset all to available and use all
-    await prisma.siteConfig.updateMany({ data: { publishingAvailable: true } });
-    availableSites.push(...resolvedSites.map(s => ({ ...s, publishingAvailable: true })));
-  }
-  // Determine next site index (round-robin)
-  let nextSiteIndex = 0;
-  if (blogConfig && typeof blogConfig.lastSiteIndex === 'number' && availableSites.length > 0) {
-    nextSiteIndex = (blogConfig.lastSiteIndex + 1) % availableSites.length;
-  }
-  const selectedSite = availableSites[nextSiteIndex];
-  // --- End round-robin site selection logic ---
 
-  // Only publish to the selected site
+  // Only publish to the provided site(s)
+  // Defensive: Only publish to the first resolved site (if multiple provided)
+  const selectedSite = resolvedSites[0];
+  if (!selectedSite) {
+    throw new Error('No valid site provided for publishing.');
+  }
+
   try {
     const publishPayload = {
       ...blogJSON,
@@ -167,7 +151,6 @@ export async function generateAndPublishService(resources) {
     };
     const wpRes = await publishToWordPress(publishPayload, selectedSite);
     const url = wpRes.link || null;
-    // Update the article with siteUrl and publishedUrl
     await prisma.article.update({
       where: { id: dbArticle.id },
       data: {
@@ -191,10 +174,6 @@ export async function generateAndPublishService(resources) {
     });
     publishedUrls.push({ siteUrl: selectedSite.url, url });
     publishedAny = true;
-    // Update lastSiteIndex in BlogConfig
-    if (resources.blogConfigId) {
-      await prisma.blogConfig.update({ where: { id: resources.blogConfigId }, data: { lastSiteIndex: nextSiteIndex } });
-    }
   } catch (err) {
     const errorMsg = err.message || 'Unknown error';
     articles.push({
