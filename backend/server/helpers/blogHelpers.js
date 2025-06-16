@@ -4,17 +4,18 @@
 import prisma from '../database.js';
 
 // Resolve sites from DB
+// Helper: resolve sites from DB, only return those with publishingAvailable !== false
 export async function resolveSites(siteIdentifiers) {
   if (!siteIdentifiers?.length) {
-    return await prisma.siteConfig.findMany();
+    return await prisma.siteConfig.findMany({ where: { publishingAvailable: true } });
   }
   const urls = siteIdentifiers.map(s =>
     typeof s === 'string' ? s : s?.url
   ).filter(Boolean);
   if (!urls.length) {
-    return await prisma.siteConfig.findMany();
+    return await prisma.siteConfig.findMany({ where: { publishingAvailable: true } });
   }
-  return await prisma.siteConfig.findMany({ where: { url: { in: urls } } });
+  return await prisma.siteConfig.findMany({ where: { url: { in: urls }, publishingAvailable: true } });
 }
 
 // Replace keyword with anchor in text

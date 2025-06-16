@@ -45,7 +45,11 @@ export async function generateAndPublishService(resources) {
     throw new Error('Missing or invalid publishingKeyword.');
   }
   // Defensive: If link is missing or invalid, do not hyperlink
-  const validLink = link && typeof link === 'string' && link.trim() && link !== 'undefined' ? link : null;
+  let validLink = link && typeof link === 'string' && link.trim() && link !== 'undefined' ? link.trim() : '';
+  // If validLink is present but does not start with http, prepend https://
+  if (validLink && !/^https?:\/\//i.test(validLink)) {
+    validLink = 'https://' + validLink;
+  }
 
   // Title logic
   const title = autoTitle ? null : (explicitTitle || topic || publishingKeyword);
@@ -79,7 +83,7 @@ export async function generateAndPublishService(resources) {
     blogJSON = await generateBlogJSON({
       title: resources.title,
       keyword: resources.publishingKeyword,
-      link: resources.link,
+      link: validLink,
       tags: resources.tags,
       topics: resources.topics,
     });
@@ -116,13 +120,13 @@ export async function generateAndPublishService(resources) {
     if (site && site.url && site.username && site.password) {
       resolvedSites.push(site);
     } else if (site && site.url && site.username) {
-      // Fetch password from DB if missing
+      // Fetch password and publishingAvailable from DB if missing
       const dbSite = await prisma.siteConfig.findFirst({
         where: { url: site.url, username: site.username },
-        select: { url: true, username: true, password: true }
+        select: { url: true, username: true, password: true, publishingAvailable: true }
       });
       if (dbSite && dbSite.password) {
-        resolvedSites.push({ ...site, password: dbSite.password });
+        resolvedSites.push({ ...site, password: dbSite.password, publishingAvailable: dbSite.publishingAvailable });
       } else {
         // Skip or throw if credentials incomplete
         throw new Error(`Missing password for site: ${site.url} (${site.username})`);
@@ -132,58 +136,81 @@ export async function generateAndPublishService(resources) {
       throw new Error('Site config missing url or username');
     }
   }
+  // --- Begin round-robin site selection logic ---
+  // Fetch BlogConfig for this publish (assume resources.blogConfigId is provided)
+  let blogConfig = null;
+  if (resources.blogConfigId) {
+    blogConfig = await prisma.blogConfig.findUnique({ where: { id: resources.blogConfigId } });
+  }
+  // Only use sites with publishingAvailable !== false
+  const availableSites = resolvedSites.filter(s => s.publishingAvailable !== false);
+  if (availableSites.length === 0) {
+    // If all are unavailable, reset all to available and use all
+    await prisma.siteConfig.updateMany({ data: { publishingAvailable: true } });
+    availableSites.push(...resolvedSites.map(s => ({ ...s, publishingAvailable: true })));
+  }
+  // Determine next site index (round-robin)
+  let nextSiteIndex = 0;
+  if (blogConfig && typeof blogConfig.lastSiteIndex === 'number' && availableSites.length > 0) {
+    nextSiteIndex = (blogConfig.lastSiteIndex + 1) % availableSites.length;
+  }
+  const selectedSite = availableSites[nextSiteIndex];
+  // --- End round-robin site selection logic ---
 
-  for (const site of resolvedSites) {
-    try {
-      const publishPayload = {
-        ...blogJSON,
-        title: dbArticle.title,
-        sections: blogJSON.sections,
-        conclusion: blogJSON.conclusion
-      };
-      const wpRes = await publishToWordPress(publishPayload, site);
-      const url = wpRes.link || null;
-      // Update the article with siteUrl and publishedUrl
-      await prisma.article.update({
-        where: { id: dbArticle.id },
-        data: {
-          siteUrl: site.url,
-          publishedUrl: url
-        }
-      });
-      articles.push({
-        title: dbArticle.title,
-        keyword,
-        file: dbArticle.id,
-        site: site.url,
-        url
-      });
-      publishLog.push({
-        timestamp: new Date().toISOString(),
-        status: 'success',
-        siteUrl: site.url,
-        postUrl: url,
-        error: null
-      });
-      publishedUrls.push({ siteUrl: site.url, url });
-      publishedAny = true;
-    } catch (err) {
-      const errorMsg = err.message || 'Unknown error';
-      articles.push({
-        title: dbArticle.title,
-        keyword,
-        file: dbArticle.id,
-        site: site.url,
-        error: errorMsg
-      });
-      publishLog.push({
-        timestamp: new Date().toISOString(),
-        status: 'error',
-        siteUrl: site.url,
-        postUrl: null,
-        error: errorMsg
-      });
+  // Only publish to the selected site
+  try {
+    const publishPayload = {
+      ...blogJSON,
+      title: dbArticle.title,
+      sections: blogJSON.sections,
+      conclusion: blogJSON.conclusion
+    };
+    const wpRes = await publishToWordPress(publishPayload, selectedSite);
+    const url = wpRes.link || null;
+    // Update the article with siteUrl and publishedUrl
+    await prisma.article.update({
+      where: { id: dbArticle.id },
+      data: {
+        siteUrl: selectedSite.url,
+        publishedUrl: url
+      }
+    });
+    articles.push({
+      title: dbArticle.title,
+      keyword,
+      file: dbArticle.id,
+      site: selectedSite.url,
+      url
+    });
+    publishLog.push({
+      timestamp: new Date().toISOString(),
+      status: 'success',
+      siteUrl: selectedSite.url,
+      postUrl: url,
+      error: null
+    });
+    publishedUrls.push({ siteUrl: selectedSite.url, url });
+    publishedAny = true;
+    // Update lastSiteIndex in BlogConfig
+    if (resources.blogConfigId) {
+      await prisma.blogConfig.update({ where: { id: resources.blogConfigId }, data: { lastSiteIndex: nextSiteIndex } });
     }
+  } catch (err) {
+    const errorMsg = err.message || 'Unknown error';
+    articles.push({
+      title: dbArticle.title,
+      keyword,
+      file: dbArticle.id,
+      site: selectedSite.url,
+      error: errorMsg
+    });
+    publishLog.push({
+      timestamp: new Date().toISOString(),
+      status: 'error',
+      siteUrl: selectedSite.url,
+      postUrl: null,
+      error: errorMsg
+    });
   }
 
   // NOTE: Marking keyword as published should be handled by the scheduler/controller, not here.

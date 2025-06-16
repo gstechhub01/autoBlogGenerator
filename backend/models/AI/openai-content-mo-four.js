@@ -48,7 +48,28 @@ ${extraPrompt}
   const jsonText = response.choices[0].message.content.trim();
 
   try {
-    return JSON.parse(jsonText);
+    const parsed = JSON.parse(jsonText);
+    // Ensure anchor is present at least once
+    if (keyword && link) {
+      const anchor = `<a href="${link}" target="_blank" rel="noopener noreferrer">${keyword}</a>`;
+      let anchorPresent = false;
+      // Check in sections
+      if (Array.isArray(parsed.sections)) {
+        anchorPresent = parsed.sections.some(sec => sec.body && sec.body.includes(anchor));
+      }
+      // Check in excerpt and conclusion
+      if (!anchorPresent && (parsed.excerpt && parsed.excerpt.includes(anchor))) anchorPresent = true;
+      if (!anchorPresent && (parsed.conclusion && parsed.conclusion.includes(anchor))) anchorPresent = true;
+      // Check in headings
+      if (!anchorPresent && Array.isArray(parsed.headings)) {
+        anchorPresent = parsed.headings.some(h => h && h.includes(anchor));
+      }
+      // Inject anchor if missing
+      if (!anchorPresent && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
+        parsed.sections[0].body = `${anchor} ${parsed.sections[0].body || ''}`;
+      }
+    }
+    return parsed;
   } catch (err) {
     // Attempt fallback: strip any leading/trailing junk
     const safeText = jsonText.replace(/^[^{]*|[^}]*$/g, '');

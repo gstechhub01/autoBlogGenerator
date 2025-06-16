@@ -147,12 +147,23 @@ export function startBlogScheduler() {
             let sites = Array.isArray(sanitizedConfig.sites) ? sanitizedConfig.sites : (sanitizedConfig.sites ? [sanitizedConfig.sites] : []);
             sanitizedConfig.sites = sites;
             // In-memory round-robin: rotate starting site index per run (optional: randomize or always start at 0)
+            // Persistent round-robin: use lastSiteIndex from config
+            sites = sites.filter(s => s.publishingAvailable !== false);
+            if (sites.length === 0) {
+              // If all sites are unavailable, reset all to available and refetch
+              await prisma.siteConfig.updateMany({ data: { publishingAvailable: true } });
+              sites = Array.isArray(sanitizedConfig.sites) ? sanitizedConfig.sites : (sanitizedConfig.sites ? [sanitizedConfig.sites] : []);
+              sites = sites.filter(s => s.publishingAvailable !== false);
+            }
             let siteCount = sites.length;
-            let startSiteIndex = 0; // Always start at 0 for each run, or use Math.floor(Math.random() * siteCount) for random
+            console.log(`  - Sites available for publishing:`, sites.map(s => s.url || s.name || s.id));
+            let startSiteIndex = (typeof config.lastSiteIndex === 'number' && siteCount > 0)
+              ? (config.lastSiteIndex + 1) % siteCount
+              : 0;
             // Loop over each keyword to publish
             for (let i = 0; i < keywordsToPublish.length; i++) {
               const keyword = keywordsToPublish[i];
-              // Round-robin site assignment (in-memory only)
+              // Round-robin site assignment
               const site = siteCount > 0 ? sites[(startSiteIndex + i) % siteCount] : null;
               if (!site) {
                 console.warn(`⚠️ No site available for publishing keyword: ${keyword}`);
@@ -195,6 +206,8 @@ export function startBlogScheduler() {
                   }),
                 }
               );
+              // Mark this site as unavailable for next round
+              await prisma.siteConfig.updateMany({ where: { url: site.url, username: site.username }, data: { publishingAvailable: false } });
             }
             // Mark all used keywords as published (main and in-article)
             await prisma.keyword.updateMany({

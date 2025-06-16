@@ -48,6 +48,7 @@ model BlogConfig {
   finishedAt           DateTime?
   contentSource        String?   @default("openai") // Source for content generation (e.g., 'openai', 'scraper', etc.)
   engine               String?   // Optional: which engine to use for content generation
+  lastSiteIndex        Int?      // For round-robin site rotation
 }
 
 model SiteConfig {
@@ -60,6 +61,7 @@ model SiteConfig {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  publishingAvailable Boolean @default(true)
 
   @@unique([url, username])
 }

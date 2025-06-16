@@ -42,7 +42,7 @@ export function prepareBlogFromScrapper({
   }
 
   // Prepare sections (rich object, not markdown)
-  const sections = scrapperResult.qa.map(item => {
+  let sections = scrapperResult.qa.map(item => {
     let heading = formatHeading(item.question);
     let body = item.answer || '';
     if (targetKeyword && targetLink) {
@@ -53,6 +53,16 @@ export function prepareBlogFromScrapper({
     if (imgMatch) image = imgMatch[1];
     return { heading, body, image };
   });
+
+  // Ensure the anchor is present at least once in the blog
+  if (targetKeyword && targetLink) {
+    const anchor = `<a href="${targetLink}" target="_blank" rel="noopener noreferrer">${targetKeyword}</a>`;
+    const anchorPresent = sections.some(sec => sec.body && sec.body.includes(anchor));
+    if (!anchorPresent && sections.length > 0) {
+      // Insert anchor at the start of the first section's body
+      sections[0].body = `${anchor} ${sections[0].body}`;
+    }
+  }
 
   // Collect all headings
   const headings = sections.map(s => s.heading);
