@@ -1,10 +1,12 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
-import fs from 'fs';
-import path from 'path';
 import dotenv from 'dotenv';
-import express from 'express';
+import extractYahooQA from './extractYahooQA.js';
+import extractGoogleQA from './extractGoogleQA.js';
+import extractBingQA from './extractBingQA.js';
+import extractDuckDuckGoQA from './extractDuckDuckGoQA.js';
+import { prepareBlogFromScrapper } from '../../templates/scrapperFormatter.js';
 dotenv.config();
 
 puppeteer.use(StealthPlugin());
@@ -50,14 +52,13 @@ function getEngineConfig(engine, query) {
   }
 }
 
-// Main scraping function with dynamic engine
-export async function scrapeWithPuppeteer(query = 'What is ChatGPT', engine = 'google') {
+export async function scrapeWithPuppeteer(query = 'What is ChatGPT', engine = 'google', options = {}) {
   console.log(`🚀 [Scrapper] Starting scrape for query: "${query}" using engine: ${engine}`);
 
   const { searchUrl, paaSelector } = getEngineConfig(engine, query);
 
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: true,
   });
 
   const page = await browser.newPage();
@@ -92,88 +93,19 @@ export async function scrapeWithPuppeteer(query = 'What is ChatGPT', engine = 'g
   // Extract Q/A pairs (generic for all engines, but Yahoo needs special handling)
   let expandAndScrape;
   if (engine === 'yahoo') {
-    expandAndScrape = await page.evaluate(() => {
-      // Yahoo's related questions are often under a section with heading 'People also ask' or 'Related questions'
-      // We'll look for those blocks and filter out AI/summary/empty/irrelevant entries
-      function isValidQuestion(q) {
-        if (!q) return false;
-        const lower = q.toLowerCase();
-        if (
-          lower.includes('ai-generated') ||
-          lower.includes('powered by openai') ||
-          lower.includes('creating an answer for you') ||
-          lower.includes('we weren’t able to create a summary') ||
-          lower.includes('is this helpful?') ||
-          lower.includes('see full list') ||
-          lower.includes('loading...') ||
-          lower.trim() === ''
-        ) return false;
-        // Filter out questions that are just dates or navigation
-        if (/\d{1,2} [a-z]{3,9} \d{4}/i.test(lower)) return false;
-        return true;
-      }
-      // Yahoo sometimes puts related Qs in .compText, but also in .Mb(12px) or .Ov(h) blocks
-      const blocks = Array.from(document.querySelectorAll('.compText, .Mb\\(12px\\), .Ov\\(h\\)'));
-      let qa = [];
-      for (let el of blocks) {
-        // Try to find a question (bold or heading or first line)
-        let question = '';
-        const bold = el.querySelector('b');
-        if (bold) question = bold.innerText.trim();
-        if (!question) question = el.querySelector('h3,h4')?.innerText?.trim() || '';
-        if (!question) question = el.innerText.split('\n')[0].trim();
-        // Try to find answer (next sibling or paragraph)
-        let answer = '';
-        const para = el.querySelector('p');
-        if (para) answer = para.innerText.trim();
-        if (!answer) {
-          // Sometimes answer is in the next sibling
-          let next = el.nextElementSibling;
-          if (next && next.tagName === 'P') answer = next.innerText.trim();
-        }
-        // Filter
-        if (
-          isValidQuestion(question) &&
-          answer &&
-          answer.length > 20 && // Only keep answers with some substance
-          !answer.toLowerCase().includes('ai-generated') &&
-          !answer.toLowerCase().includes('powered by openai') &&
-          !answer.toLowerCase().includes('creating an answer for you') &&
-          !answer.toLowerCase().includes('we weren’t able to create a summary') &&
-          !answer.toLowerCase().includes('is this helpful?') &&
-          !answer.toLowerCase().includes('see full list') &&
-          !answer.toLowerCase().includes('loading...')
-        ) {
-          qa.push({ question, answer });
-        }
-      }
-      return qa;
-    });
+    expandAndScrape = await extractYahooQA(page);
+  } else if (engine === 'google') {
+    expandAndScrape = await extractGoogleQA(page, paaSelector);
+  } else if (engine === 'bing') {
+    expandAndScrape = await extractBingQA(page, paaSelector);
+  } else if (engine === 'duckduckgo') {
+    expandAndScrape = await extractDuckDuckGoQA(page, paaSelector);
   } else {
-    expandAndScrape = await page.evaluate((paaSelector) => {
-      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-      const pairs = Array.from(document.querySelectorAll(paaSelector));
-      let qa = [];
-      for (let i = 0; i < pairs.length; i++) {
-        const el = pairs[i];
-        // Try to expand if possible
-        const button = el.querySelector('div[role="button"]');
-        if (button) button.click();
-        // Wait for answer to load (simulate async)
-        // await sleep(800); // Not available in browser context, so skip
-        const question = el.innerText.split('\n')[0] || 'No question found';
-        // Try to find answer element
-        let answer = '';
-        const answerEl = el.querySelector('.s75CSd') || el.querySelector('.b_paragraph') || el.querySelector('.compText') || null;
-        answer = answerEl ? answerEl.innerText : '';
-        qa.push({ question, answer });
-      }
-      return qa;
-    }, paaSelector);
+    expandAndScrape = [];
   }
 
   // Get page title and first heading for context
-  const pageTitle = await page.title();
+  const pageTitle = query;
   const firstHeading = await page.evaluate(() => {
     const h3 = document.querySelector('h3');
     return h3 ? h3.innerText : '';
@@ -225,27 +157,22 @@ export async function scrapeWithPuppeteer(query = 'What is ChatGPT', engine = 'g
       timestamp: new Date().toISOString(),
     },
   };
-
-  const filename = `search_${query.replace(/\s+/g, '_')}_${engine}_puppeteer.json`;
-  fs.writeFileSync(path.join(process.cwd(), filename), JSON.stringify(formattedResult, null, 2));
-  console.log(`✅ [Scrapper] Saved to ${filename}`);
   console.log(`✅ [Scrapper] Scrape complete. Total Q/A pairs: ${expandAndScrape.length}`);
+
+  // If options.prepareForPublishing is true, return formatted for publishing
+  if (options.prepareForPublishing) {
+    return prepareBlogFromScrapper({
+      scrapperResult: formattedResult,
+      targetKeyword: options.targetKeyword || query,
+      targetLink: options.targetLink || '',
+      conclusion: options.conclusion || '',
+      featuredImage: options.featuredImage || '',
+      tags: options.tags || [],
+      extra: options.extra || {},
+    });
+  }
+
   return formattedResult;
 }
 
-// Express API endpoint for dynamic scraping
-export const app = express();
-app.use(express.json());
-
-app.post('/api/scrape', async (req, res) => {
-  const { query, engine } = req.body;
-  if (!query || !engine) {
-    return res.status(400).json({ success: false, error: 'Missing query or engine' });
-  }
-  try {
-    const result = await scrapeWithPuppeteer(query, engine);
-    res.status(200).json({ success: true, result });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+// Removed Express app and route logic for modularization

@@ -1,7 +1,7 @@
 import prisma from '../database.js';
 import fs from 'fs';
 import path from 'path';
-import { generateBlogJSON } from '../../models/openai-content-mo-four.js';
+import { generateBlogJSON } from '../../models/AI/openai-content-mo-four.js';
 import { convertBlogJSONToMarkdown } from '../../util/markdowncoonverter.js';
 import { publishToWordPress } from '../../publisher/wp-publisher.js';
 import express from 'express';

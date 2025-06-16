@@ -1,6 +1,6 @@
 import { publishToWordPress } from '../../publisher/wp-publisher.js';
-import { scrapeWithPuppeteer } from '../../models/scrapperBot.js';
-import { generateBlogJSON } from '../../models/openai-content-mo-four.js';
+import { scrapeWithPuppeteer } from '../../models/scrappers/scrapperBot.js';
+import { generateBlogJSON } from '../../models/AI/openai-content-mo-four.js';
 import { replaceKeywordWithAnchor } from '../helpers/blogHelpers.js';
 import prisma from '../database.js';
 
@@ -59,7 +59,19 @@ export async function generateAndPublishService(resources) {
     // Use scrapper logic
     const scraped = await scrapeWithPuppeteer(
       resources.publishingKeyword,
-      resources.engine || 'google'
+      resources.engine || 'google',
+      {
+        prepareForPublishing: true,
+        targetKeyword: resources.publishingKeyword,
+        targetLink: validLink,
+        conclusion: resources.conclusion || '',
+        featuredImage: resources.featuredImage || '',
+        tags: resources.tags || [],
+        extra: {
+          topics: resources.topics || [],
+          inArticleKeywords: resources.inArticleKeywords || []
+        }
+      }
     );
     blogJSON = scraped;
   } else {
