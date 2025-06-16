@@ -141,14 +141,19 @@ export function startBlogScheduler() {
               tags: typeof config.tags === 'string' ? JSON.parse(config.tags) : config.tags,
               topics: typeof config.topics === 'string' ? JSON.parse(config.topics) : config.topics,
               autoTitle: config.autoTitle !== false, // default true
+              contentSource: config.contentSource || 'openai',
+              engine: config.engine || undefined,
             };
             let sites = Array.isArray(sanitizedConfig.sites) ? sanitizedConfig.sites : (sanitizedConfig.sites ? [sanitizedConfig.sites] : []);
             sanitizedConfig.sites = sites;
+            // In-memory round-robin: rotate starting site index per run (optional: randomize or always start at 0)
+            let siteCount = sites.length;
+            let startSiteIndex = 0; // Always start at 0 for each run, or use Math.floor(Math.random() * siteCount) for random
             // Loop over each keyword to publish
             for (let i = 0; i < keywordsToPublish.length; i++) {
               const keyword = keywordsToPublish[i];
-              // Rotate site for each article (round-robin)
-              const site = sites.length > 0 ? sites[i % sites.length] : null;
+              // Round-robin site assignment (in-memory only)
+              const site = siteCount > 0 ? sites[(startSiteIndex + i) % siteCount] : null;
               if (!site) {
                 console.warn(`⚠️ No site available for publishing keyword: ${keyword}`);
                 continue;
@@ -158,9 +163,13 @@ export function startBlogScheduler() {
                 sites: [site], // Only one site per article/keyword
                 publishingKeyword: keyword,
                 inArticleKeywords: inArticleKeywords.filter(k => k !== keyword),
+                contentSource: sanitizedConfig.contentSource,
+                engine: sanitizedConfig.engine,
                 // Optionally set link, topic, etc. if needed
               };
-              console.log(`  - Calling generateAndPublish for configId: ${configId} with publishingKeyword:`, keyword, 'and site:', site);
+              console.log(`  - Calling generateAndPublish for configId: ${configId} with publishingKeyword:`, keyword, 'and site:', site, '| contentSource:', payload.contentSource, '| engine:', payload.engine);
+              // Log which engine is being used for this content
+              console.log(`    [ENGINE LOG] Using engine: ${payload.engine || 'default'} for keyword: ${keyword}`);
               await generateAndPublish(
                 { body: payload },
                 {

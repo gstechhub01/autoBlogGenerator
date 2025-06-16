@@ -55,47 +55,22 @@ export async function generateAndPublishService(resources) {
   const anchorTag = validLink ? `<a href="${validLink}" target="_blank" rel="noopener noreferrer">${keyword}</a>` : keyword;
   let blogJSON = null;
 
-  if (contentSource === 'scrapper') {
-    const scraped = await scrapeWithPuppeteer(keyword, engine);
-    const sections = (scraped.qa || []).map(q => ({
-      heading: q.question,
-      body: replaceKeywordWithAnchor(q.answer, keywordLinks, anchorTag),
-      image: q.image || ''
-    }));
-    let excerpt = '';
-    if (sections.length > 0) {
-      excerpt = sections[0].body.replace(/<[^>]+>/g, '').slice(0, 160);
-    }
-    blogJSON = {
-      title: scraped.title || topic || keyword,
-      targetKeyword: keyword,
-      targetLink: validLink || '',
-      excerpt,
-      tags,
-      headings: (scraped.qa || []).map(q => q.question),
-      sections,
-      conclusion: scraped.qa && scraped.qa.length > 0 ? replaceKeywordWithAnchor(scraped.qa[scraped.qa.length - 1].answer, keywordLinks, anchorTag) : ''
-    };
-  } else if (contentSource === 'openai') {
-    let openAIPromptRules = '';
-    if (keywordLinks.length > 0) {
-      openAIPromptRules += `- Use up to ${keywordLinks.length} in-article keywords: ${keywordLinks.join(', ')} as context/SEO.\n`;
-    }
-    // Only add hyperlinking rule if validLink exists
-    if (validLink) {
-      openAIPromptRules += `- Only the publishing keyword should be hyperlinked.\n`;
-    } else {
-      openAIPromptRules += `- Do NOT hyperlink any keywords.\n`;
-    }
-    if (keywordLinks.length > 0) {
-      openAIPromptRules += `- Do not exceed ${keywordLinks.length} keyword links in the article.\n`;
-    }
-    openAIPromptRules += `- Each keyword should appear naturally.\n`;
-    blogJSON = await generateBlogJSON({ title: title || undefined, keyword, link: validLink || '', extraPrompt: openAIPromptRules });
-    blogJSON.targetKeyword = keyword;
-    blogJSON.targetLink = validLink || '';
-    blogJSON.tags = tags || [];
-    if (!blogJSON.title) blogJSON.title = topic || keyword;
+  if (resources.contentSource === 'scrapper') {
+    // Use scrapper logic
+    const scraped = await scrapeWithPuppeteer(
+      resources.publishingKeyword,
+      resources.engine || 'google'
+    );
+    blogJSON = scraped;
+  } else {
+    // Use OpenAI logic
+    blogJSON = await generateBlogJSON({
+      title: resources.title,
+      keyword: resources.publishingKeyword,
+      link: resources.link,
+      tags: resources.tags,
+      topics: resources.topics,
+    });
   }
 
   console.log('Generated blogJSON:', JSON.stringify(blogJSON, null, 2));

@@ -15,6 +15,8 @@ export async function generateAndPublish(req, res) {
       links: typeof req.body.links === 'string' ? JSON.parse(req.body.links) : req.body.links,
       tags: typeof req.body.tags === 'string' ? JSON.parse(req.body.tags) : req.body.tags,
       topics: typeof req.body.topics === 'string' ? JSON.parse(req.body.topics) : req.body.topics,
+      contentSource: req.body.contentSource || 'openai',
+      engine: req.body.engine || undefined,
     };
     // Call service with parsed config
     const result = await generateAndPublishService(parsedConfig);

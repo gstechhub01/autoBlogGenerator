@@ -212,7 +212,7 @@ export async function scrapeWithPuppeteer(query = 'What is ChatGPT', engine = 'g
   const formattedResult = {
     query,
     engine,
-    title: pageTitle,
+    title: pageTitle, // Only use the page title, never include engine in the title
     firstHeading,
     qa: expandAndScrape,
     keywords: [query],

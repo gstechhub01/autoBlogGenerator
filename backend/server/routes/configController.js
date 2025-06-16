@@ -30,6 +30,8 @@ router.post('/save-config', async (req, res) => {
         publishIntervalMinutes,
         scheduleTime,
         hasRun: false, // Ensure hasRun is false on create
+        contentSource: config.contentSource || 'openai',
+        engine: config.engine || null,
       },
     });
     res.status(200).json({ success: true, message: 'Blog config saved.', config: newConfig });

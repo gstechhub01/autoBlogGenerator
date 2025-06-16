@@ -46,6 +46,8 @@ model BlogConfig {
   processingLog        Json?
   startedAt            DateTime?
   finishedAt           DateTime?
+  contentSource        String?   @default("openai") // Source for content generation (e.g., 'openai', 'scraper', etc.)
+  engine               String?   // Optional: which engine to use for content generation
 }
 
 model SiteConfig {
