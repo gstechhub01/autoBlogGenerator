@@ -40,12 +40,28 @@ export async function generateAndPublishService(resources) {
     ...rest
   } = resources;
 
+  // DEBUG: Log incoming resources and link value
+  console.log('generateAndPublishService resources.link:', link);
+
   // Defensive: Ensure publishingKeyword is present and valid
   if (!publishingKeyword || typeof publishingKeyword !== 'string' || !publishingKeyword.trim() || publishingKeyword === 'undefined') {
     throw new Error('Missing or invalid publishingKeyword.');
   }
   // Defensive: If link is missing or invalid, do not hyperlink
-  let validLink = link && typeof link === 'string' && link.trim() && link !== 'undefined' ? link.trim() : '';
+  let validLink = '';
+  if (link && typeof link === 'string' && link.trim() && link !== 'undefined') {
+    // Handle case where link is a JSON stringified array, e.g., '["gstechhub.com.ng"]'
+    let parsedLink = link;
+    try {
+      const arr = JSON.parse(link);
+      if (Array.isArray(arr) && arr.length > 0) {
+        parsedLink = arr[0];
+      }
+    } catch (e) {
+      // Not a JSON array, use as is
+    }
+    validLink = parsedLink.trim();
+  }
   // If validLink is present but does not start with http, prepend https://
   if (validLink && !/^https?:\/\//i.test(validLink)) {
     validLink = 'https://' + validLink;
@@ -56,7 +72,7 @@ export async function generateAndPublishService(resources) {
   const keyword = publishingKeyword;
   const keywordLinks = inArticleKeywords;
   // Only create anchorTag if validLink exists
-  const anchorTag = validLink ? `<a href="${validLink}" target="_blank" rel="noopener noreferrer">${keyword}</a>` : keyword;
+  // const anchorTag = validLink ? `<a href="${validLink}" target="_blank" rel="noopener noreferrer">${keyword}</a>` : keyword;
   let blogJSON = null;
 
   if (resources.contentSource === 'scrapper') {
@@ -66,8 +82,8 @@ export async function generateAndPublishService(resources) {
       resources.engine || 'google',
       {
         prepareForPublishing: true,
-        targetKeyword: resources.publishingKeyword,
-        targetLink: validLink,
+        targetKeyword: keyword, // Use main publishing keyword
+        targetLink: validLink,  // Use parsed/validated link
         conclusion: resources.conclusion || '',
         featuredImage: resources.featuredImage || '',
         tags: resources.tags || [],

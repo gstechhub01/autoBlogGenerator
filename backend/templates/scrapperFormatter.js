@@ -37,8 +37,12 @@ export function prepareBlogFromScrapper({
   function injectAnchor(text, keyword, link) {
     if (!keyword || !link || !text) return text;
     const anchor = `<a href="${link}" target="_blank" rel="noopener noreferrer">${keyword}</a>`;
-    // Replace only first occurrence (case-insensitive)
-    return text.replace(new RegExp(keyword, 'i'), anchor);
+    // Replace only first occurrence, case-insensitive, word-boundary
+    const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i');
+    if (regex.test(text)) {
+      return text.replace(regex, anchor);
+    }
+    return text;
   }
 
   // Prepare sections (rich object, not markdown)
@@ -54,13 +58,16 @@ export function prepareBlogFromScrapper({
     return { heading, body, image };
   });
 
-  // Ensure the anchor is present at least once in the blog
+  // Always include the anchor in the first section if not present anywhere
   if (targetKeyword && targetLink) {
     const anchor = `<a href="${targetLink}" target="_blank" rel="noopener noreferrer">${targetKeyword}</a>`;
-    const anchorPresent = sections.some(sec => sec.body && sec.body.includes(anchor));
+    let anchorPresent = sections.some(sec => sec.body && sec.body.includes(anchor));
     if (!anchorPresent && sections.length > 0) {
-      // Insert anchor at the start of the first section's body
       sections[0].body = `${anchor} ${sections[0].body}`;
+    }
+    // Always include the anchor in the second section, even if keyword is not present
+    if (sections.length > 1 && !sections[1].body.includes(anchor)) {
+      sections[1].body = `${anchor} ${sections[1].body}`;
     }
   }
 

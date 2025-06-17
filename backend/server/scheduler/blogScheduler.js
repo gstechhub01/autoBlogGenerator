@@ -170,14 +170,31 @@ export function startBlogScheduler() {
                 console.warn(`⚠️ No site available for publishing keyword: ${keyword}`);
                 continue;
               }
+              // Find the correct link for this keyword (if links array exists and matches keywords)
+              let link = '';
+              if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0 && Array.isArray(sanitizedConfig.keywords)) {
+                // Try to match by index if possible
+                const keywordIndex = sanitizedConfig.keywords.findIndex(k => k === keyword);
+                if (keywordIndex !== -1 && sanitizedConfig.links[keywordIndex]) {
+                  link = sanitizedConfig.links[keywordIndex];
+                } else {
+                  // Fallback: use first link if only one
+                  link = sanitizedConfig.links[0];
+                }
+              } else if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0) {
+                // If keywords is not an array, just use the first link
+                link = sanitizedConfig.links[0];
+              }
               const payload = {
                 ...sanitizedConfig,
                 sites: [site], // Only one site per article/keyword
                 publishingKeyword: keyword,
                 inArticleKeywords: inArticleKeywords.filter(k => k !== keyword),
+                link, // Pass the resolved link for this keyword
                 contentSource: sanitizedConfig.contentSource,
                 engine: sanitizedConfig.engine,
-                blogConfigId: config.id // Pass for service to know which config
+                blogConfigId: config.id,
+                links: sanitizedConfig.links || [],
               };
               console.log(`  - Calling generateAndPublish for configId: ${configId} with publishingKeyword:`, keyword, 'and site:', site, '| contentSource:', payload.contentSource, '| engine:', payload.engine);
               // Log which engine is being used for this content

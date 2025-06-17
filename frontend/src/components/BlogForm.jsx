@@ -18,7 +18,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   const [engine, setEngine] = useState(initialEngine);
   const [unpublishedCount, setUnpublishedCount] = useState(0);
   const [keywordsPerArticle, setKeywordsPerArticle] = useState(1);
-  const [publishInterval, setPublishInterval] = useState(60); // default 60 minutes
+  const [publishInterval, setPublishInterval] = useState(10); // default 60 minutes
   const [exhaustAllKeywords, setExhaustAllKeywords] = useState(true);
   const [scheduleTime, setScheduleTime] = useState('');
 
