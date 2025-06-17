@@ -16,6 +16,7 @@ import prisma from '../database.js';
  *     topic: string, // topic for the article
  *     title: string, // explicit title (optional)
  *     tags: string[],
+ *     categories: string[],
  *     sites: array, // site configs
  *     contentSource: 'scrapper' | 'openai',
  *     engine: string, // for scrapper
@@ -32,6 +33,7 @@ export async function generateAndPublishService(resources) {
     topic = '',
     title: explicitTitle = '',
     tags = [],
+    categories = [], // <-- ensure categories is destructured
     sites = [],
     contentSource = 'openai',
     engine = 'google',
@@ -71,8 +73,6 @@ export async function generateAndPublishService(resources) {
   const title = autoTitle ? null : (explicitTitle || topic || publishingKeyword);
   const keyword = publishingKeyword;
   const keywordLinks = inArticleKeywords;
-  // Only create anchorTag if validLink exists
-  // const anchorTag = validLink ? `<a href="${validLink}" target="_blank" rel="noopener noreferrer">${keyword}</a>` : keyword;
   let blogJSON = null;
 
   if (resources.contentSource === 'scrapper') {
@@ -163,7 +163,8 @@ export async function generateAndPublishService(resources) {
       ...blogJSON,
       title: dbArticle.title,
       sections: blogJSON.sections,
-      conclusion: blogJSON.conclusion
+      conclusion: blogJSON.conclusion,
+      categories: resources.categories // <-- include categories in the payload
     };
     const wpRes = await publishToWordPress(publishPayload, selectedSite);
     const url = wpRes.link || null;

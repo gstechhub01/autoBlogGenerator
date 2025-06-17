@@ -49,6 +49,7 @@ model BlogConfig {
   contentSource        String?   @default("openai") // Source for content generation (e.g., 'openai', 'scraper', etc.)
   engine               String?   // Optional: which engine to use for content generation
   lastSiteIndex        Int?      // For round-robin site rotation
+  categories            Json?     // <-- Added for WordPress category selection
 }
 
 model SiteConfig {

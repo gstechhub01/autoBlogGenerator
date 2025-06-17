@@ -7,6 +7,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   const [links, setLinks] = useState('');
   const [tags, setTags] = useState('');
   const [topics, setTopics] = useState('');
+  const [categories, setCategories] = useState('');
   const [autoTitle, setAutoTitle] = useState(true);
   const [articleCount, setArticleCount] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -55,6 +56,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
         links: links.split(',').map(l => l.trim()).filter(Boolean),
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         topics: topics.split(',').map(t => t.trim()).filter(Boolean),
+        categories: categories.split(',').map(c => c.trim()).filter(Boolean),
         autoTitle,
         articleCount: Number(articleCount) || 1,
         contentSource,
@@ -178,6 +180,16 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
             className="w-32"
           />
           <p className="text-xs text-gray-500 mt-1">Number of keywords to use per article (max: {unpublishedCount || 1})</p>
+        </div>
+
+        <div>
+          <label>Categories (comma separated)</label>
+          <input
+            type="text"
+            value={categories}
+            onChange={e => setCategories(e.target.value)}
+            placeholder="Enter categories separated by commas"
+          />
         </div>
 
         <div>

@@ -24,6 +24,7 @@ router.post('/save-config', async (req, res) => {
         links: JSON.stringify(config.links || []),
         tags: JSON.stringify(config.tags || []),
         topics: JSON.stringify(config.topics || []),
+        categories: JSON.stringify(config.categories || []),
         autoTitle: config.autoTitle ?? true,
         articleCount: config.articleCount || 1,
         keywordsPerArticle: config.keywordsPerArticle || 1,
