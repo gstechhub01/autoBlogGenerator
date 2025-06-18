@@ -9,10 +9,9 @@ router.post('/save-config', async (req, res) => {
     const config = req.body;
     const userId = req.user?.userId || config.userId || 1; // Use userId from token if available
     // Save config to BlogConfig table
-    const exhaustAllKeywords = config.exhaustAllKeywords !== undefined ? config.exhaustAllKeywords : true;
     let publishIntervalMinutes = null;
     let scheduleTime = null;
-    if (exhaustAllKeywords) {
+    if (config.exhaustAllKeywords) {
       publishIntervalMinutes = config.publishIntervalMinutes || config.publishInterval || null;
     } else {
       scheduleTime = config.scheduleTime || null;
@@ -41,6 +40,19 @@ router.post('/save-config', async (req, res) => {
         category = catStr.split(',').map(c => c.trim()).filter(Boolean)[0] || '';
       }
     }
+    let exhaustAllKeywords = config.exhaustAllKeywords;
+    if (config.contentSource === 'openai') {
+      // Only allow if user explicitly set, otherwise default to false
+      exhaustAllKeywords = config.exhaustAllKeywords === true;
+    } else if (exhaustAllKeywords === undefined) {
+      exhaustAllKeywords = true;
+    }
+    let inArticleKeywords = [];
+    if (typeof config.inArticleKeywords === 'string') {
+      inArticleKeywords = config.inArticleKeywords.split(',').map(k => k.trim()).filter(Boolean).slice(0, 3);
+    } else if (Array.isArray(config.inArticleKeywords)) {
+      inArticleKeywords = config.inArticleKeywords.slice(0, 3);
+    }
     const newConfig = await prisma.blogConfig.create({
       data: {
         userId,
@@ -57,6 +69,8 @@ router.post('/save-config', async (req, res) => {
         hasRun: false, // Ensure hasRun is false on create
         contentSource: config.contentSource || 'openai',
         engine: config.engine || null,
+        inArticleKeywords: JSON.stringify(inArticleKeywords),
+        exhaustAllKeywords,
       },
     });
     res.status(200).json({ success: true, message: 'Blog config saved.', config: newConfig });

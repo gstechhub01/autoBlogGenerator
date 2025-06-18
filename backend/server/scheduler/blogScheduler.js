@@ -100,28 +100,44 @@ export function startBlogScheduler() {
         // Allocate keywords for this run (from global pool)
         let keywordsToPublish = [];
         let keywordsToMarkPublished = [];
+        // Use in-article keywords from config if set, else fallback to random unpublished
+        let inArticleKeywords = [];
+        if (config.inArticleKeywords) {
+          try {
+            let parsed;
+            if (Array.isArray(config.inArticleKeywords)) {
+              parsed = config.inArticleKeywords;
+            } else if (typeof config.inArticleKeywords === 'string') {
+              // Accept comma-separated string or JSON array
+              if (config.inArticleKeywords.trim().startsWith('[')) {
+                parsed = JSON.parse(config.inArticleKeywords);
+              } else {
+                parsed = config.inArticleKeywords.split(',').map(k => k.trim()).filter(Boolean);
+              }
+            }
+            if (Array.isArray(parsed)) {
+              inArticleKeywords = parsed.filter(k => unpublishedKeywords.some(uk => uk.keyword === k)).slice(0, 3);
+            }
+          } catch {}
+        }
         if (exhaustAllKeywords) {
           // Publish one or more keywords per interval (respect articleCount/keywordsPerArticle if set)
           const count = config.articleCount || 1;
-          // Only select keywords that are not published and not in use as in-article links
           keywordsToPublish = unpublishedKeywords.slice(0, count).map(k => k.keyword);
-          // Mark all selected keywords as to be published
           keywordsToMarkPublished = [...keywordsToPublish];
         } else {
-          // One-off: just pick the first unpublished keyword
           keywordsToPublish = [unpublishedKeywords[0].keyword];
           keywordsToMarkPublished = [unpublishedKeywords[0].keyword];
         }
-        // Also mark in-article keywords as published to prevent reuse
-        let inArticleKeywords = [];
-        if (config.keywordsPerArticle && keywordsToPublish.length > 0) {
-          // Pick additional keywords for in-article links, not including the main publishing keywords
+        // If in-article keywords are set, use them, else fallback to random
+        if (inArticleKeywords.length === 0 && config.keywordsPerArticle && keywordsToPublish.length > 0) {
           inArticleKeywords = unpublishedKeywords
             .filter(k => !keywordsToPublish.includes(k.keyword))
             .slice(0, config.keywordsPerArticle * keywordsToPublish.length)
-            .map(k => k.keyword);
-          keywordsToMarkPublished.push(...inArticleKeywords);
+            .map(k => k.keyword)
+            .slice(0, 3);
         }
+        keywordsToMarkPublished.push(...inArticleKeywords);
         // Remove duplicates
         keywordsToMarkPublished = [...new Set(keywordsToMarkPublished)];
         console.log(`  - Allocated keywords for this run (global):`, keywordsToPublish);

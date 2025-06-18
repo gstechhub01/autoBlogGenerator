@@ -27,7 +27,7 @@ Rules:
 ${extraPrompt}
 - Replace every full occurrence of "${keyword}" with this exact HTML anchor tag:
   <a href="${link}" target="_blank" rel="noopener noreferrer">${keyword}</a>
-- Ensure at least one hyperlink appears in each paragraph where natural.
+- Ensure at least one hyperlink appears in 3 paragraph where natural.
 - Each section must have a heading, a detailed body, and a relevant image URL.
 - Include at least 5 detailed sections.
 - The total blog post should be at least 2000 words.

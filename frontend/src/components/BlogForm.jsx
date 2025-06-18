@@ -22,6 +22,9 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
   const [publishInterval, setPublishInterval] = useState(10); // default 60 minutes
   const [exhaustAllKeywords, setExhaustAllKeywords] = useState(true);
   const [scheduleTime, setScheduleTime] = useState('');
+  const [inArticleKeywords, setInArticleKeywords] = useState([]);
+  const [inArticleKeywordsInput, setInArticleKeywordsInput] = useState('');
+  const [allUnpublishedKeywords, setAllUnpublishedKeywords] = useState([]);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -44,6 +47,21 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
     fetchUnpublishedCount();
   }, [selectedSites, API_BASE]);
 
+  // Fetch all unpublished keywords for in-article selection
+  useEffect(() => {
+    const fetchAllUnpublished = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/all-keywords`, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+        const data = await res.json();
+        if (data.success) {
+          setAllUnpublishedKeywords(data.keywords.filter(k => !k.published).map(k => k.keyword));
+        }
+      } catch {}
+    };
+    fetchAllUnpublished();
+  }, [API_BASE]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -51,6 +69,10 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
     setSuccess(null);
     setPublishResults(null);
     try {
+      let inArticleArr = inArticleKeywords;
+      if (!inArticleArr.length && inArticleKeywordsInput) {
+        inArticleArr = inArticleKeywordsInput.split(',').map(k => k.trim()).filter(Boolean).slice(0, 3);
+      }
       const payload = {
         sites: selectedSites.map(site => ({ url: site.url, username: site.username })),
         links: links.split(',').map(l => l.trim()).filter(Boolean),
@@ -64,6 +86,7 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
         engine: contentSource === 'scrapper' ? engine : undefined,
         keywordsPerArticle: keywordsPerArticle || 1,
         exhaustAllKeywords,
+        inArticleKeywords: inArticleArr,
       };
       if (exhaustAllKeywords) {
         payload.publishIntervalMinutes = Number(publishInterval) || 60;
@@ -194,12 +217,34 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
         </div>
 
         <div>
+          <label>In-Article Keywords (comma separated, max 3)</label>
+          <input
+            type="text"
+            value={inArticleKeywordsInput}
+            onChange={e => setInArticleKeywordsInput(e.target.value)}
+            onBlur={e => {
+              const arr = e.target.value.split(',').map(k => k.trim()).filter(Boolean).slice(0, 3);
+              setInArticleKeywords(arr);
+              setInArticleKeywordsInput(arr.join(', '));
+            }}
+            placeholder="Enter up to 3 keywords (multi-word allowed, comma separated)"
+            className="w-full border rounded px-2 py-1"
+          />
+          <p className="text-xs text-gray-500 mt-1">Enter up to 3 keywords or phrases, separated by commas. Multi-word keywords are allowed.</p>
+        </div>
+
+        <div>
           <label className="inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
               checked={exhaustAllKeywords}
-              onChange={e => setExhaustAllKeywords(e.target.checked)}
+              onChange={e => {
+                // For AI, only allow if user explicitly sets
+                if (contentSource === 'openai') setExhaustAllKeywords(e.target.checked);
+                else setExhaustAllKeywords(e.target.checked);
+              }}
               className="form-checkbox h-4 w-4 text-blue-600"
+              disabled={contentSource === 'openai' && !exhaustAllKeywords}
             />
             <span className="ml-2 text-gray-700">Publish all keywords (exhaust all before stopping)</span>
           </label>

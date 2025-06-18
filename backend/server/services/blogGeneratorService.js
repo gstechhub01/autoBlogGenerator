@@ -72,7 +72,18 @@ export async function generateAndPublishService(resources) {
   // Title logic
   const title = autoTitle ? null : (explicitTitle || topic || publishingKeyword);
   const keyword = publishingKeyword;
-  const keywordLinks = inArticleKeywords;
+  let inArticleKeywordsArr = [];
+  if (typeof inArticleKeywords === 'string') {
+    try {
+      inArticleKeywordsArr = JSON.parse(inArticleKeywords);
+    } catch {
+      inArticleKeywordsArr = inArticleKeywords.split(',').map(k => k.trim()).filter(Boolean);
+    }
+  } else if (Array.isArray(inArticleKeywords)) {
+    inArticleKeywordsArr = inArticleKeywords;
+  }
+  inArticleKeywordsArr = inArticleKeywordsArr.slice(0, 3);
+  const keywordLinks = inArticleKeywordsArr;
   let blogJSON = null;
 
   if (resources.contentSource === 'scrapper') {

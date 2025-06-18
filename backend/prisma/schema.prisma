@@ -50,6 +50,7 @@ model BlogConfig {
   engine               String?   // Optional: which engine to use for content generation
   lastSiteIndex        Int?      // For round-robin site rotation
   categories            String?   // <-- Now always a single string for WordPress category
+  inArticleKeywords     String?   // JSON stringified array of in-article keywords (max 3)
 }
 
 model SiteConfig {
