@@ -95,8 +95,29 @@ export function prepareBlogFromScrapper({
   }
 
   // Prepare final blog object (generateBlogJSON compatible)
+  // Pick a random heading for the title if available
+  let randomTitle = '';
+  // Defensive: Normalize category
+  let category = '';
+  if (typeof extra.category === 'string' && extra.category.trim()) {
+    category = extra.category.trim();
+  } else if (Array.isArray(extra.categories) && extra.categories.length > 0) {
+    category = extra.categories[0];
+  } else if (typeof extra.categories === 'string' && extra.categories.trim()) {
+    category = extra.categories.split(',').map(c => c.trim()).filter(Boolean)[0] || '';
+  }
+
+  // Ensure only a single category is set (string, not array)
+  if (extra && typeof extra === 'object') {
+    if (Array.isArray(extra.categories) && extra.categories.length > 0) {
+      category = extra.categories[0];
+    } else if (typeof extra.category === 'string') {
+      category = extra.category;
+    }
+  }
+
   const blog = {
-    title: scrapperResult.query || scrapperResult.title || headings[0] || '',
+    title: randomTitle || headings[0] || scrapperResult.query || scrapperResult.title,
     targetKeyword,
     targetLink,
     excerpt,
@@ -109,6 +130,7 @@ export function prepareBlogFromScrapper({
     conclusion,
     engine: scrapperResult.engine,
     keywords: scrapperResult.keywords || [],
+    category, // single category string
     ...extra,
   };
   return blog;

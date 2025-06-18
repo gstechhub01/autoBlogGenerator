@@ -60,6 +60,15 @@ async function getOrCreateTag(tagName, site) {
 
 // Get or create category by name
 async function getOrCreateCategory(categoryName, site) {
+  // Defensive: If categoryName is array or object, extract first string value
+  if (Array.isArray(categoryName)) {
+    categoryName = categoryName[0] || '';
+  } else if (typeof categoryName === 'object' && categoryName !== null) {
+    categoryName = Object.values(categoryName)[0] || '';
+  }
+  if (typeof categoryName !== 'string') categoryName = '';
+  categoryName = categoryName.trim();
+
   const { url, username, password } = site;
   const auth = Buffer.from(`${username}:${password}`).toString('base64');
   try {
@@ -89,7 +98,20 @@ async function getOrCreateCategory(categoryName, site) {
 export async function publishToWordPress(blog, site) {
   const { url, username, password } = site;
   const auth = Buffer.from(`${username}:${password}`).toString('base64');
-  const { title, excerpt, tags = [], featuredImage, sections, conclusion, categories = [] } = blog;
+  const { title, excerpt, tags = [], featuredImage, sections, conclusion } = blog;
+
+  // Extract the single, normalized category string
+  let category = blog.category;
+  if (!category && blog.categories) {
+    // Fallback for legacy: if categories is array, take first string
+    if (Array.isArray(blog.categories)) {
+      category = blog.categories[0];
+    } else if (typeof blog.categories === 'string') {
+      category = blog.categories;
+    }
+  }
+  if (typeof category !== 'string') category = '';
+  category = category.trim();
 
   const contentHTML = sections.map(s =>
     `<h2>${s.heading}</h2><p>${s.body}</p>` + (s.image ? `<img src="${s.image}" alt="${s.heading}"/>` : '')
@@ -100,9 +122,12 @@ export async function publishToWordPress(blog, site) {
   const tagIds = await Promise.all(tags.map(tag => getOrCreateTag(tag, site)));
   const validTagIds = tagIds.filter(id => id !== null);
 
-  // Handle categories
-  const categoryIds = await Promise.all((categories || []).map(cat => getOrCreateCategory(cat, site)));
-  const validCategoryIds = categoryIds.filter(id => id !== null);
+  // Always use a single, normalized category
+  let categoryId = null;
+  if (category) {
+    categoryId = await getOrCreateCategory(category, site);
+  }
+  const validCategoryIds = categoryId ? [categoryId] : [];
 
   try {
     const postRes = await axios.post(`${url}/wp-json/wp/v2/posts`, {

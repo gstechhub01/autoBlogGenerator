@@ -56,7 +56,8 @@ const BlogForm = ({ selectedSites = [], contentSource: initialContentSource = 'o
         links: links.split(',').map(l => l.trim()).filter(Boolean),
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         topics: topics.split(',').map(t => t.trim()).filter(Boolean),
-        categories: categories.split(',').map(c => c.trim()).filter(Boolean),
+        // Only send a single category string (first non-empty value)
+        category: categories.split(',').map(c => c.trim()).filter(Boolean)[0] || '',
         autoTitle,
         articleCount: Number(articleCount) || 1,
         contentSource,

@@ -105,6 +105,28 @@ export async function generateAndPublishService(resources) {
     });
   }
 
+  // --- CATEGORY NORMALIZATION FOR ALL CONTENT SOURCES ---
+  // Defensive: Ensure blogJSON.category is always a string
+  let normalizedCategory = '';
+  if (typeof resources.category === 'string' && resources.category.trim()) {
+    normalizedCategory = resources.category.trim();
+  } else if (Array.isArray(resources.categories) && resources.categories.length > 0) {
+    normalizedCategory = resources.categories[0];
+  } else if (typeof resources.categories === 'string' && resources.categories.trim()) {
+    normalizedCategory = resources.categories.split(',').map(c => c.trim()).filter(Boolean)[0] || '';
+  } else if (typeof blogJSON.category === 'string' && blogJSON.category.trim()) {
+    normalizedCategory = blogJSON.category.trim();
+  } else if (Array.isArray(blogJSON.category) && blogJSON.category.length > 0) {
+    normalizedCategory = blogJSON.category[0];
+  } else if (typeof blogJSON.categories === 'string' && blogJSON.categories.trim()) {
+    normalizedCategory = blogJSON.categories.split(',').map(c => c.trim()).filter(Boolean)[0] || '';
+  } else if (Array.isArray(blogJSON.categories) && blogJSON.categories.length > 0) {
+    normalizedCategory = blogJSON.categories[0];
+  }
+  blogJSON.category = normalizedCategory;
+  // Remove categories array/object if present
+  if (blogJSON.categories) delete blogJSON.categories;
+
   console.log('Generated blogJSON:', JSON.stringify(blogJSON, null, 2));
 
   // Defensive: Ensure blogJSON is valid before DB save
@@ -158,13 +180,23 @@ export async function generateAndPublishService(resources) {
     throw new Error('No valid site provided for publishing.');
   }
 
+  // Normalize category: accept 'category' (string) or 'categories' (array or string)
+  let category = '';
+  if (typeof resources.category === 'string' && resources.category.trim()) {
+    category = resources.category.trim();
+  } else if (Array.isArray(resources.categories) && resources.categories.length > 0) {
+    category = resources.categories[0];
+  } else if (typeof resources.categories === 'string' && resources.categories.trim()) {
+    category = resources.categories.split(',').map(c => c.trim()).filter(Boolean)[0] || '';
+  }
+
   try {
     const publishPayload = {
       ...blogJSON,
       title: dbArticle.title,
       sections: blogJSON.sections,
       conclusion: blogJSON.conclusion,
-      categories: resources.categories // <-- include categories in the payload
+      category // Always pass as a string
     };
     const wpRes = await publishToWordPress(publishPayload, selectedSite);
     const url = wpRes.link || null;

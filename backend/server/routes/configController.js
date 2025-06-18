@@ -17,6 +17,30 @@ router.post('/save-config', async (req, res) => {
     } else {
       scheduleTime = config.scheduleTime || null;
     }
+    // Normalize category: accept 'category' (string) or 'categories' (array, string, or JSON string)
+    let category = '';
+    if (typeof config.category === 'string' && config.category.trim()) {
+      category = config.category.trim();
+    } else if (Array.isArray(config.categories) && config.categories.length > 0) {
+      category = config.categories[0];
+    } else if (typeof config.categories === 'string' && config.categories.trim()) {
+      // Try to parse as JSON array
+      let catStr = config.categories.trim();
+      try {
+        const parsed = JSON.parse(catStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          category = parsed[0];
+        } else if (typeof parsed === 'string') {
+          category = parsed;
+        } else {
+          // Fallback: treat as comma-separated string
+          category = catStr.split(',').map(c => c.trim()).filter(Boolean)[0] || '';
+        }
+      } catch {
+        // Not JSON, treat as comma-separated string
+        category = catStr.split(',').map(c => c.trim()).filter(Boolean)[0] || '';
+      }
+    }
     const newConfig = await prisma.blogConfig.create({
       data: {
         userId,
@@ -24,7 +48,7 @@ router.post('/save-config', async (req, res) => {
         links: JSON.stringify(config.links || []),
         tags: JSON.stringify(config.tags || []),
         topics: JSON.stringify(config.topics || []),
-        categories: JSON.stringify(config.categories || []),
+        categories: category, // Always store as a string
         autoTitle: config.autoTitle ?? true,
         articleCount: config.articleCount || 1,
         keywordsPerArticle: config.keywordsPerArticle || 1,

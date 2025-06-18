@@ -1,5 +1,12 @@
-
 export function convertBlogJSONToMarkdown(blog) {
+    // Defensive: ensure category is a string if present
+    let category = '';
+    if (typeof blog.category === 'string') {
+      category = blog.category;
+    } else if (Array.isArray(blog.category) && blog.category.length > 0) {
+      category = blog.category[0];
+    }
+  
     const { title, sections, conclusion, targetKeyword, targetLink } = blog;
   
     let markdown = `# ${title}\n\n`;
@@ -21,4 +28,3 @@ export function convertBlogJSONToMarkdown(blog) {
   
     return markdown;
   }
-  
