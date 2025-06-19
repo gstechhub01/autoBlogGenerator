@@ -86,6 +86,11 @@ export async function generateAndPublishService(resources) {
   const keywordLinks = inArticleKeywordsArr;
   let blogJSON = null;
 
+  let inArticleKeyword = '';
+  if (Array.isArray(inArticleKeywordsArr) && inArticleKeywordsArr.length > 0) {
+    inArticleKeyword = inArticleKeywordsArr[0];
+  }
+
   if (resources.contentSource === 'scrapper') {
     // Use scrapper logic
     const scraped = await scrapeWithPuppeteer(
@@ -107,10 +112,15 @@ export async function generateAndPublishService(resources) {
     blogJSON = scraped;
   } else {
     // Use OpenAI logic
+    // Always use the allocated publishingKeyword for the title
+    const articleTitle = resources.publishingKeyword;
+    // If inArticleKeywordsArr exists, use the first as inArticleKeyword for anchor injection
+    const inArticleKeyword = Array.isArray(inArticleKeywordsArr) && inArticleKeywordsArr.length > 0 ? inArticleKeywordsArr[0] : '';
     blogJSON = await generateBlogJSON({
-      title: resources.title,
+      title: articleTitle,
       keyword: resources.publishingKeyword,
       link: validLink,
+      inArticleKeyword,
       tags: resources.tags,
       topics: resources.topics,
     });

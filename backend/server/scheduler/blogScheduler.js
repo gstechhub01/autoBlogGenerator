@@ -85,6 +85,8 @@ export function startBlogScheduler() {
         }
         // Fetch all unpublished keywords globally
         const unpublishedKeywords = await prisma.keyword.findMany({ where: { published: false } });
+        // Fetch all keywords (published and unpublished) for allKeywords logic
+        const allKeywords = await prisma.keyword.findMany();
         console.log(`  - unpublishedKeywords fetched:`, unpublishedKeywords.map(k => k.keyword));
         if (unpublishedKeywords.length === 0) {
           if (!config.hasRun) {
@@ -116,14 +118,19 @@ export function startBlogScheduler() {
               }
             }
             if (Array.isArray(parsed)) {
-              inArticleKeywords = parsed.filter(k => unpublishedKeywords.some(uk => uk.keyword === k)).slice(0, 3);
+              if (config.contentSource === 'openai') {
+                // For OpenAI, use as provided (no limit if exhaustAllKeywords)
+                inArticleKeywords = exhaustAllKeywords ? parsed : parsed.slice(0, 3);
+              } else {
+                // For others, filter by unpublished
+                inArticleKeywords = parsed.filter(k => unpublishedKeywords.some(uk => uk.keyword === k)).slice(0, 3);
+              }
             }
           } catch {}
         }
         if (exhaustAllKeywords) {
-          // Publish one or more keywords per interval (respect articleCount/keywordsPerArticle if set)
-          const count = config.articleCount || 1;
-          keywordsToPublish = unpublishedKeywords.slice(0, count).map(k => k.keyword);
+          // Publish ALL unpublished keywords for both OpenAI and scrapper
+          keywordsToPublish = unpublishedKeywords.map(k => k.keyword);
           keywordsToMarkPublished = [...keywordsToPublish];
         } else {
           keywordsToPublish = [unpublishedKeywords[0].keyword];
@@ -178,28 +185,30 @@ export function startBlogScheduler() {
               : 0;
             // Loop over each keyword to publish
             for (let i = 0; i < keywordsToPublish.length; i++) {
-              const keyword = keywordsToPublish[i];
-              // Round-robin site assignment
+              let keyword = keywordsToPublish[i];
+              let link = '';
+              // Fix: define site before using it
               const siteIndex = (startSiteIndex + i) % siteCount;
               const site = siteCount > 0 ? sites[siteIndex] : null;
-              if (!site) {
-                console.warn(`⚠️ No site available for publishing keyword: ${keyword}`);
-                continue;
-              }
-              // Find the correct link for this keyword (if links array exists and matches keywords)
-              let link = '';
-              if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0 && Array.isArray(sanitizedConfig.keywords)) {
-                // Try to match by index if possible
-                const keywordIndex = sanitizedConfig.keywords.findIndex(k => k === keyword);
-                if (keywordIndex !== -1 && sanitizedConfig.links[keywordIndex]) {
-                  link = sanitizedConfig.links[keywordIndex];
-                } else {
-                  // Fallback: use first link if only one
+              // For OpenAI: if inArticleKeywords exist, use them as publishingKeyword and set link accordingly
+              if (sanitizedConfig.contentSource === 'openai' && Array.isArray(inArticleKeywords) && inArticleKeywords.length > 0) {
+                keyword = inArticleKeywords[i % inArticleKeywords.length];
+                // Try to match link by index if links exist
+                if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0) {
+                  link = sanitizedConfig.links[i % sanitizedConfig.links.length];
+                }
+              } else {
+                // Find the correct link for this keyword (if links array exists and matches keywords)
+                if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0 && Array.isArray(sanitizedConfig.keywords)) {
+                  const keywordIndex = sanitizedConfig.keywords.findIndex(k => k === keyword);
+                  if (keywordIndex !== -1 && sanitizedConfig.links[keywordIndex]) {
+                    link = sanitizedConfig.links[keywordIndex];
+                  } else {
+                    link = sanitizedConfig.links[0];
+                  }
+                } else if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0) {
                   link = sanitizedConfig.links[0];
                 }
-              } else if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0) {
-                // If keywords is not an array, just use the first link
-                link = sanitizedConfig.links[0];
               }
               const payload = {
                 ...sanitizedConfig,
@@ -255,7 +264,11 @@ export function startBlogScheduler() {
             // Check if all keywords are published
             const unpublishedCount = await prisma.keyword.count({ where: { published: false } });
             console.log(`  - unpublishedCount after publish (global):`, unpublishedCount);
-            if (unpublishedCount === 0) {
+            // Mark as finished if scheduleTime is set (one-off job), regardless of unpublished keywords
+            if (config.scheduleTime) {
+              await prisma.blogConfig.update({ where: { id: config.id }, data: { hasRun: true, status: 'finished', finishedAt: new Date(), processingLog } });
+              console.log(`  - One-off scheduled job, marked as finished.`);
+            } else if (unpublishedCount === 0) {
               await prisma.blogConfig.update({ where: { id: config.id }, data: { hasRun: true, status: 'finished', finishedAt: new Date(), processingLog } });
               console.log(`  - All keywords published, marked as finished.`);
             } else {

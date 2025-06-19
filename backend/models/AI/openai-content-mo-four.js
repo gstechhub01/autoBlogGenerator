@@ -4,7 +4,9 @@ dotenv.config();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function generateBlogJSON({ title, keyword, link, extraPrompt = '' }) {
+export async function generateBlogJSON({ title, keyword, link, inArticleKeyword = '', extraPrompt = '' }) {
+  // If inArticleKeyword is provided, use it for anchor/target keyword, else fallback to keyword
+  const anchorKeyword = inArticleKeyword || keyword;
   const prompt = `
 Generate a JSON blog post with the following structure:
 
@@ -22,12 +24,13 @@ Generate a JSON blog post with the following structure:
 }
 
 Rules:
-- If no title is provided, generate a compelling, SEO-friendly blog title based on the "${keyword}".
 - Use the title: "${title}"
+- The main topic/SEO keyword for the article is: "${keyword}"
+- For all anchor/hyperlink injections, use the keyword: "${anchorKeyword}" and the link: "${link}"
 ${extraPrompt}
-- Replace every full occurrence of "${keyword}" with this exact HTML anchor tag:
-  <a href="${link}" target="_blank" rel="noopener noreferrer">${keyword}</a>
-- Ensure at least one hyperlink appears in 3 paragraph where natural.
+- Replace every full occurrence of "${anchorKeyword}" with this exact HTML anchor tag:
+  <a href="${link}" target="_blank" rel="noopener noreferrer">${anchorKeyword}</a>
+- Ensure at least one hyperlink appears in 3 paragraphs where natural.
 - Each section must have a heading, a detailed body, and a relevant image URL.
 - Include at least 5 detailed sections.
 - The total blog post should be at least 2000 words.
@@ -50,8 +53,8 @@ ${extraPrompt}
   try {
     const parsed = JSON.parse(jsonText);
     // Ensure anchor is present at least once
-    if (keyword && link) {
-      const anchor = `<a href="${link}" target="_blank" rel="noopener noreferrer">${keyword}</a>`;
+    if (anchorKeyword && link) {
+      const anchor = `<a href="${link}" target="_blank" rel="noopener noreferrer">${anchorKeyword}</a>`;
       let anchorPresent = false;
       // Check in sections
       if (Array.isArray(parsed.sections)) {
