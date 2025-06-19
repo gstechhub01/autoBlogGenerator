@@ -185,36 +185,28 @@ export function startBlogScheduler() {
               : 0;
             // Loop over each keyword to publish
             for (let i = 0; i < keywordsToPublish.length; i++) {
-              let keyword = keywordsToPublish[i];
+              const keyword = keywordsToPublish[i]; // Always use assigned keyword
               let link = '';
-              // Fix: define site before using it
               const siteIndex = (startSiteIndex + i) % siteCount;
               const site = siteCount > 0 ? sites[siteIndex] : null;
-              // For OpenAI: if inArticleKeywords exist, use them as publishingKeyword and set link accordingly
-              if (sanitizedConfig.contentSource === 'openai' && Array.isArray(inArticleKeywords) && inArticleKeywords.length > 0) {
-                keyword = inArticleKeywords[i % inArticleKeywords.length];
-                // Try to match link by index if links exist
-                if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0) {
-                  link = sanitizedConfig.links[i % sanitizedConfig.links.length];
-                }
-              } else {
-                // Find the correct link for this keyword (if links array exists and matches keywords)
-                if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0 && Array.isArray(sanitizedConfig.keywords)) {
-                  const keywordIndex = sanitizedConfig.keywords.findIndex(k => k === keyword);
-                  if (keywordIndex !== -1 && sanitizedConfig.links[keywordIndex]) {
-                    link = sanitizedConfig.links[keywordIndex];
-                  } else {
-                    link = sanitizedConfig.links[0];
-                  }
-                } else if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0) {
+
+              // Find the correct link for this keyword (if links array exists and matches keywords)
+              if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0 && Array.isArray(sanitizedConfig.keywords)) {
+                const keywordIndex = sanitizedConfig.keywords.findIndex(k => k === keyword);
+                if (keywordIndex !== -1 && sanitizedConfig.links[keywordIndex]) {
+                  link = sanitizedConfig.links[keywordIndex];
+                } else {
                   link = sanitizedConfig.links[0];
                 }
+              } else if (Array.isArray(sanitizedConfig.links) && sanitizedConfig.links.length > 0) {
+                link = sanitizedConfig.links[0];
               }
+
               const payload = {
                 ...sanitizedConfig,
                 sites: [site], // Only one site per article/keyword
-                publishingKeyword: keyword,
-                inArticleKeywords: inArticleKeywords.filter(k => k !== keyword),
+                publishingKeyword: keyword, // Always the assigned keyword
+                inArticleKeywords: inArticleKeywords.filter(k => k !== keyword), // Exclude publishing keyword from in-article
                 link, // Pass the resolved link for this keyword
                 contentSource: sanitizedConfig.contentSource,
                 engine: sanitizedConfig.engine,

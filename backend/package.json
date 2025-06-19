@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node models/scrapperBot.js"
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "author": "gstechhub",
   "license": "ISC",

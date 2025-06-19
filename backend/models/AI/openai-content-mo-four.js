@@ -5,8 +5,30 @@ dotenv.config();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function generateBlogJSON({ title, keyword, link, inArticleKeyword = '', extraPrompt = '' }) {
-  // If inArticleKeyword is provided, use it for anchor/target keyword, else fallback to keyword
-  const anchorKeyword = inArticleKeyword || keyword;
+  // Ensure inArticleKeyword is an array of up to 3 keywords
+  let anchorKeywords = [];
+  if (Array.isArray(inArticleKeyword)) {
+    anchorKeywords = inArticleKeyword.slice(0, 3);
+  } else if (typeof inArticleKeyword === 'string' && inArticleKeyword.trim() !== '') {
+    anchorKeywords = [inArticleKeyword];
+  } else {
+    anchorKeywords = [keyword];
+  }
+
+  // Prepare anchor tags for each keyword
+  const anchorTags = anchorKeywords.map(kw => `<a href="${link}" target="_blank" rel="noopener noreferrer">${kw}</a>`);
+
+  // Build prompt instructions for multiple anchors
+  const anchorInstructions = anchorKeywords.length > 1
+    ? `- For anchor/hyperlink injections, use each of these keywords once: ${anchorKeywords.map(kw => `"${kw}"`).join(', ')} (max 3 anchors in total), each with the link: "${link}".
+- Replace every full occurrence of each keyword with its corresponding anchor tag:
+${anchorKeywords.map((kw, i) => `  "${kw}" → ${anchorTags[i]}`).join('\n')}
+- Ensure each anchor appears in a different paragraph or section where natural.`
+    : `- For all anchor/hyperlink injections, use the keyword: "${anchorKeywords[0]}" and the link: "${link}"
+- Replace every full occurrence of "${anchorKeywords[0]}" with this exact HTML anchor tag:
+  ${anchorTags[0]}
+- Ensure at least one hyperlink appears in 3 paragraphs where natural.`;
+
   const prompt = `
 Generate a JSON blog post with the following structure:
 
@@ -24,13 +46,10 @@ Generate a JSON blog post with the following structure:
 }
 
 Rules:
+- If no title is provided, generate a compelling, SEO-friendly blog title based on the "${keyword}".
 - Use the title: "${title}"
-- The main topic/SEO keyword for the article is: "${keyword}"
-- For all anchor/hyperlink injections, use the keyword: "${anchorKeyword}" and the link: "${link}"
+${anchorInstructions}
 ${extraPrompt}
-- Replace every full occurrence of "${anchorKeyword}" with this exact HTML anchor tag:
-  <a href="${link}" target="_blank" rel="noopener noreferrer">${anchorKeyword}</a>
-- Ensure at least one hyperlink appears in 3 paragraphs where natural.
 - Each section must have a heading, a detailed body, and a relevant image URL.
 - Include at least 5 detailed sections.
 - The total blog post should be at least 2000 words.
@@ -52,25 +71,27 @@ ${extraPrompt}
 
   try {
     const parsed = JSON.parse(jsonText);
-    // Ensure anchor is present at least once
-    if (anchorKeyword && link) {
-      const anchor = `<a href="${link}" target="_blank" rel="noopener noreferrer">${anchorKeyword}</a>`;
-      let anchorPresent = false;
-      // Check in sections
-      if (Array.isArray(parsed.sections)) {
-        anchorPresent = parsed.sections.some(sec => sec.body && sec.body.includes(anchor));
-      }
-      // Check in excerpt and conclusion
-      if (!anchorPresent && (parsed.excerpt && parsed.excerpt.includes(anchor))) anchorPresent = true;
-      if (!anchorPresent && (parsed.conclusion && parsed.conclusion.includes(anchor))) anchorPresent = true;
-      // Check in headings
-      if (!anchorPresent && Array.isArray(parsed.headings)) {
-        anchorPresent = parsed.headings.some(h => h && h.includes(anchor));
-      }
-      // Inject anchor if missing
-      if (!anchorPresent && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
-        parsed.sections[0].body = `${anchor} ${parsed.sections[0].body || ''}`;
-      }
+
+    // Ensure each anchor is present at least once (max 3 anchors)
+    if (anchorKeywords.length && link) {
+      anchorTags.forEach((anchor, idx) => {
+        let anchorPresent = false;
+        // Check in sections
+        if (Array.isArray(parsed.sections)) {
+          anchorPresent = parsed.sections.some(sec => sec.body && sec.body.includes(anchor));
+        }
+        // Check in excerpt and conclusion
+        if (!anchorPresent && (parsed.excerpt && parsed.excerpt.includes(anchor))) anchorPresent = true;
+        if (!anchorPresent && (parsed.conclusion && parsed.conclusion.includes(anchor))) anchorPresent = true;
+        // Check in headings
+        if (!anchorPresent && Array.isArray(parsed.headings)) {
+          anchorPresent = parsed.headings.some(h => h && h.includes(anchor));
+        }
+        // Inject anchor if missing
+        if (!anchorPresent && Array.isArray(parsed.sections) && parsed.sections.length > idx) {
+          parsed.sections[idx].body = `${anchor} ${parsed.sections[idx].body || ''}`;
+        }
+      });
     }
     return parsed;
   } catch (err) {

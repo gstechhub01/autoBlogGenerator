@@ -52,13 +52,14 @@ function getEngineConfig(engine, query) {
   }
 }
 
-export async function scrapeWithPuppeteer(query = 'What is ChatGPT', engine = 'google', options = {}) {
+export async function scrapeWithPuppeteer(query, engine = 'google', options = {}) {
   console.log(`🚀 [Scrapper] Starting scrape for query: "${query}" using engine: ${engine}`);
 
   const { searchUrl, paaSelector } = getEngineConfig(engine, query);
 
   const browser = await puppeteer.launch({
     headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
   const page = await browser.newPage();
